@@ -4,7 +4,7 @@ import { useGameSocket } from '../context/SocketContext.js';
 import { useToast } from '../context/ToastContext.js';
 import { sound } from '../services/sound.js';
 import { api } from '../services/api.js';
-import { GameRoom } from '../types/index.js';
+import { GameRoom, CustomDeckConfig } from '../types/index.js';
 import { InviteFriendsModal } from '../components/Modals/InviteFriendsModal.js';
 import {
   Crown,
@@ -16,10 +16,11 @@ import {
   LogOut,
   Bot,
   UserPlus,
-  ShieldCheck,
   CheckCircle2,
   Clock,
-  Sparkles,
+  Layers,
+  Settings,
+  X,
 } from 'lucide-react';
 
 interface LobbyScreenProps {
@@ -42,6 +43,8 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
   const [showInviteModal, setShowInviteModal] = useState<boolean>(false);
+  const [showDeckPreview, setShowDeckPreview] = useState<boolean>(false);
+  const [showCapacityModal, setShowCapacityModal] = useState<boolean>(false);
   const [starting, setStarting] = useState<boolean>(false);
 
   const fetchRoom = async () => {
@@ -90,8 +93,17 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   const myMember = room.members.find((m) => m.userId === user.id || m.user?.id === user.id);
   const isReady = myMember ? myMember.isReady : false;
 
+  const maxPlayers = room.maxPlayers || 4;
   const totalPlayers = room.members.length;
-  const allReady = totalPlayers === 4 && room.members.every((m) => m.isReady);
+  const allReady = totalPlayers === maxPlayers && room.members.every((m) => m.isReady);
+
+  // Parse custom deck config if present
+  let customConfig: CustomDeckConfig | null = null;
+  if (room.customDeckJson) {
+    try {
+      customConfig = JSON.parse(room.customDeckJson);
+    } catch {}
+  }
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(room.code);
@@ -119,7 +131,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
         return {
           ...prev,
           members: prev.members.map((m) =>
-            (m.userId === user.id || m.user?.id === user.id) ? { ...m, isReady: res.isReady } : m
+            m.userId === user.id || m.user?.id === user.id ? { ...m, isReady: res.isReady } : m
           ),
         };
       });
@@ -151,8 +163,29 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
     }
   };
 
+  const handleChangeCapacity = async (newCapacity: number) => {
+    if (newCapacity < totalPlayers) {
+      showToast(
+        `Cannot reduce limit to ${newCapacity} because ${totalPlayers} players have already joined.`,
+        'error'
+      );
+      return;
+    }
+    sound.playClick();
+    try {
+      const res = await api.updateRoomSettings(room.code, { maxPlayers: newCapacity });
+      if (res.room) {
+        setRoom(res.room);
+        showToast(`Table capacity updated to ${newCapacity} players!`, 'success');
+        setShowCapacityModal(false);
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update capacity', 'error');
+    }
+  };
+
   const handleStartGame = async () => {
-    if (!allReady || totalPlayers !== 4) return;
+    if (!allReady || totalPlayers !== maxPlayers) return;
     sound.playDeclare();
     setStarting(true);
     try {
@@ -174,8 +207,8 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
     }
   };
 
-  // Build 4 Seats array
-  const seats = [0, 1, 2, 3].map((seatIndex) => {
+  // Build dynamic Seats array for room.maxPlayers
+  const seats = Array.from({ length: maxPlayers }, (_, i) => i).map((seatIndex) => {
     const member = room.members.find((m) => m.seatIndex === seatIndex);
     return { seatIndex, member };
   });
@@ -185,12 +218,17 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
       {/* Top Lobby Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 rounded-3xl bg-table-surface border border-table-border shadow-xl">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="text-xs uppercase font-bold tracking-wider text-stone-400">
               Lobby Room Code
             </span>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500/40 text-emerald-400 font-mono">
-              {room.cardTheme.toUpperCase()} THEME
+            <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-500/40 text-emerald-400 font-mono font-bold">
+              {maxPlayers} PLAYERS ({maxPlayers * 4} PARCHIS)
+            </span>
+            <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-gold-950 border border-gold-500/40 text-gold-300 font-mono font-bold">
+              {customConfig && customConfig.isCustom
+                ? `CUSTOM DECK (${customConfig.items.length} WORDS)`
+                : `${room.cardTheme.toUpperCase()} THEME`}
             </span>
           </div>
 
@@ -212,17 +250,39 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
             >
               {copiedLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
             </button>
+
+            {/* Deck preview button */}
+            {customConfig && customConfig.isCustom && (
+              <button
+                onClick={() => setShowDeckPreview(true)}
+                className="px-2.5 py-1.5 rounded-xl bg-table-card border border-table-border hover:border-gold-400 text-xs font-bold text-stone-300 hover:text-gold-300 flex items-center gap-1.5"
+              >
+                <Layers className="w-3.5 h-3.5 text-gold-400" />
+                <span>Preview Deck</span>
+              </button>
+            )}
           </div>
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+        <div className="flex items-center gap-2.5 w-full sm:w-auto flex-wrap">
+          {/* Host edit capacity button */}
+          {isHost && (
+            <button
+              onClick={() => setShowCapacityModal(true)}
+              className="px-3 py-2 rounded-xl border border-table-border bg-table-card hover:border-gold-400 text-xs font-bold text-stone-300 hover:text-gold-300 flex items-center gap-1.5"
+            >
+              <Settings className="w-3.5 h-3.5 text-gold-400" />
+              <span>Change Capacity ({maxPlayers})</span>
+            </button>
+          )}
+
           <button
             onClick={() => {
               sound.playClick();
               setShowInviteModal(true);
             }}
-            className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-table-border bg-table-card hover:bg-white/5 text-xs font-bold text-ivory-100 flex items-center justify-center gap-2"
+            className="flex-1 sm:flex-none px-4 py-2 rounded-xl border border-table-border bg-table-card hover:bg-white/5 text-xs font-bold text-ivory-100 flex items-center justify-center gap-2"
           >
             <UserPlus className="w-4 h-4 text-gold-400" />
             <span>Invite Friends</span>
@@ -230,7 +290,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
           <button
             onClick={handleLeaveRoom}
-            className="px-4 py-2.5 rounded-xl border border-table-border bg-white/5 hover:bg-red-950/30 text-xs font-bold text-stone-300 hover:text-red-400 flex items-center gap-1.5 transition-colors"
+            className="px-4 py-2 rounded-xl border border-table-border bg-white/5 hover:bg-red-950/30 text-xs font-bold text-stone-300 hover:text-red-400 flex items-center gap-1.5 transition-colors"
           >
             <LogOut className="w-4 h-4" />
             <span>Leave</span>
@@ -238,20 +298,30 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
         </div>
       </div>
 
-      {/* 4 Seating Pods Table Layout */}
+      {/* Dynamic Seating Pods Table Layout */}
       <div className="p-6 sm:p-10 rounded-3xl bg-gradient-to-b from-table-surface via-table-card to-emerald-950/20 border border-table-border shadow-2xl">
         <div className="text-center mb-8">
           <h2 className="text-xl font-serif font-black text-ivory-100 flex items-center justify-center gap-2">
             <Users className="w-5 h-5 text-gold-400" />
-            <span>Table Seats ({totalPlayers}/4 Players)</span>
+            <span>
+              Table Seats ({totalPlayers}/{maxPlayers} Players)
+            </span>
           </h2>
           <p className="text-xs text-stone-400 mt-1">
-            Circular passing order: Seat 1 &rarr; Seat 2 &rarr; Seat 3 &rarr; Seat 4 &rarr; Seat 1
+            Circular passing order: Seat 1 &rarr; Seat 2 &rarr; ... &rarr; Seat {maxPlayers} &rarr; Seat 1
           </p>
         </div>
 
-        {/* 4 Seats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Dynamic Seats Grid */}
+        <div
+          className={`grid gap-4 ${
+            maxPlayers <= 4
+              ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+              : maxPlayers <= 6
+              ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+          }`}
+        >
           {seats.map(({ seatIndex, member }) => {
             const memberUserId = member?.userId || member?.user?.id;
             const isMe = member && memberUserId === user.id;
@@ -292,7 +362,8 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                       <img
                         src={
                           member.isBot
-                            ? member.botAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=Bot${seatIndex}`
+                            ? member.botAvatar ||
+                              `https://api.dicebear.com/7.x/bottts/svg?seed=Bot${seatIndex}`
                             : member.user?.avatarUrl || ''
                         }
                         alt="Player"
@@ -366,7 +437,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
         {/* Bottom Control Bar */}
         <div className="mt-10 pt-6 border-t border-table-border flex flex-col sm:flex-row items-center justify-between gap-4">
-          {/* Ready status toggle for non-host or host */}
+          {/* Ready status toggle */}
           <button
             onClick={handleToggleReady}
             className={`w-full sm:w-auto px-6 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all ${
@@ -394,11 +465,11 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
               <span>
                 {starting
                   ? 'Starting Match...'
-                  : totalPlayers < 4
-                  ? `Need 4 Players (${totalPlayers}/4)`
+                  : totalPlayers < maxPlayers
+                  ? `Need ${maxPlayers} Players (${totalPlayers}/${maxPlayers})`
                   : !allReady
                   ? 'Waiting for all players to Ready'
-                  : 'START 16 PARCHI MATCH'}
+                  : `START ${maxPlayers * 4} PARCHI MATCH`}
               </span>
             </button>
           ) : (
@@ -409,6 +480,95 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
           )}
         </div>
       </div>
+
+      {/* Capacity Change Modal (Host Only) */}
+      {showCapacityModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-table-surface border border-table-border rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-table-border pb-3">
+              <h3 className="text-base font-bold text-ivory-100 flex items-center gap-2">
+                <Users className="w-4 h-4 text-gold-400" />
+                <span>Adjust Room Capacity</span>
+              </h3>
+              <button
+                onClick={() => setShowCapacityModal(false)}
+                className="text-stone-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-stone-400">
+              Select player capacity for this match (minimum 4, up to 8). You cannot set capacity lower
+              than the current number of joined players ({totalPlayers}).
+            </p>
+
+            <div className="grid grid-cols-5 gap-2 pt-2">
+              {[4, 5, 6, 7, 8].map((count) => {
+                const disabled = count < totalPlayers;
+                return (
+                  <button
+                    key={count}
+                    disabled={disabled}
+                    onClick={() => handleChangeCapacity(count)}
+                    className={`py-3 rounded-2xl border text-center transition-all ${
+                      count === maxPlayers
+                        ? 'border-gold-500 bg-gold-500/20 text-gold-300 font-black ring-2 ring-gold-400/40'
+                        : disabled
+                        ? 'border-table-border bg-table-card/40 text-stone-600 cursor-not-allowed'
+                        : 'border-table-border bg-table-card text-stone-300 hover:border-stone-500 font-bold'
+                    }`}
+                  >
+                    <div className="text-lg">{count}</div>
+                    <div className="text-[10px] text-stone-400">Seats</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Deck Preview Modal */}
+      {showDeckPreview && customConfig && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg bg-table-surface border border-table-border rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-table-border pb-3">
+              <h3 className="text-base font-bold text-ivory-100 flex items-center gap-2">
+                <Layers className="w-4 h-4 text-gold-400" />
+                <span>Custom Parchi Deck Preview</span>
+              </h3>
+              <button
+                onClick={() => setShowDeckPreview(false)}
+                className="text-stone-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {customConfig.items.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between p-3 rounded-xl bg-table-card border border-table-border"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-bold text-gold-400 w-6">#{idx + 1}</span>
+                    <span className="text-sm font-bold text-ivory-100">{item.name}</span>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-stone-400 px-2 py-0.5 rounded bg-black/40">
+                    {item.count} Parchis
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-2 text-center text-xs font-mono text-stone-400">
+              Total {customConfig.items.reduce((sum, it) => sum + it.count, 0)} parchis in deck
+            </div>
+          </div>
+        </div>
+      )}
 
       <InviteFriendsModal
         isOpen={showInviteModal}

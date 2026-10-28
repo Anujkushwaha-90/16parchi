@@ -8,6 +8,7 @@ import {
   RankingEntry,
   GameLogEntry,
   MatchStatus,
+  CustomDeckConfig,
 } from './types.js';
 import { generateDeck } from './themes.js';
 
@@ -43,6 +44,8 @@ export class ParchiGame {
   public logs: GameLogEntry[] = [];
   public createdAt: number;
   public endedAt: number | null = null;
+  public playerCount: number;
+  public customDeckConfig: CustomDeckConfig | null;
 
   private timerInterval: NodeJS.Timeout | null = null;
   private onStateChangeCallback: (() => void) | null = null;
@@ -62,12 +65,20 @@ export class ParchiGame {
       seatIndex: number;
     }>,
     theme: CardTheme = 'royals',
-    turnTimeSeconds: number = 20
+    turnTimeSeconds: number = 20,
+    customDeckConfig?: CustomDeckConfig | null,
+    playerCount?: number
   ) {
     this.matchId = matchId;
     this.roomId = roomId;
     this.roomCode = roomCode;
+    if (typeof customDeckConfig === 'number') {
+      playerCount = customDeckConfig;
+      customDeckConfig = null;
+    }
+
     this.theme = theme;
+    this.customDeckConfig = customDeckConfig || null;
     this.status = 'LOBBY';
     this.turnNumber = 1;
     this.roundNumber = 1;
@@ -76,9 +87,11 @@ export class ParchiGame {
     this.rankings = [];
     this.createdAt = Date.now();
 
-    // Exactly 4 seats required
+    // Determine target player count (min 4, default 4 or max seatIndex + 1 or players.length)
+    this.playerCount = Math.max(4, playerCount || players.length || 4);
+
     this.seats = [];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < this.playerCount; i++) {
       const p = players.find((pl) => pl.seatIndex === i);
       if (p) {
         this.seats.push({
@@ -134,13 +147,14 @@ export class ParchiGame {
     if (this.status !== 'LOBBY') return;
 
     this.status = 'DEALING';
-    this.addLog('Game started! Dealing 16 parchis...', 'DEAL');
+    const totalParchis = this.playerCount * 4;
+    this.addLog(`Game started! Dealing ${totalParchis} parchis to ${this.playerCount} players...`, 'DEAL');
 
-    const deck = generateDeck(this.theme);
+    const deck = generateDeck(this.theme, this.playerCount, this.customDeckConfig);
     const shuffled = secureShuffle(deck);
 
-    // Deal exactly 4 cards to each of the 4 players
-    for (let i = 0; i < 4; i++) {
+    // Deal exactly 4 cards to each of the players
+    for (let i = 0; i < this.playerCount; i++) {
       this.seats[i].hand = shuffled.slice(i * 4, (i + 1) * 4);
     }
 
@@ -163,8 +177,9 @@ export class ParchiGame {
    * Helper to find next eligible active (non-finished) seat in clockwise direction
    */
   public getNextActiveSeat(fromSeat: number): number {
-    for (let step = 1; step <= 4; step++) {
-      const next = (fromSeat + step) % 4;
+    const totalSeats = this.seats.length;
+    for (let step = 1; step <= totalSeats; step++) {
+      const next = (fromSeat + step) % totalSeats;
       if (this.seats[next].finishedRank === null) {
         return next;
       }
@@ -264,7 +279,7 @@ export class ParchiGame {
       }
 
       // If match finished, notify and return
-      if (this.status === 'FINISHED') {
+      if ((this.status as MatchStatus) === 'FINISHED') {
         this.notifyState();
         return { success: true };
       }
@@ -336,22 +351,24 @@ export class ParchiGame {
 
     this.rankings.push(rankingEntry);
 
-    const rankTitles = ['1st Place 🏆', '2nd Place 🥈', '3rd Place 🥉', '4th Place'];
+    const rankTitles = ['1st Place 🏆', '2nd Place 🥈', '3rd Place 🥉'];
+    const rankTitle = rank <= 3 ? rankTitles[rank - 1] : `${rank}th Place`;
     this.addLog(
-      `🎉 ${seat.displayName} completed 4x ${winningName} and finished ${rankTitles[rank - 1] || `${rank}th Place`}!`,
+      `🎉 ${seat.displayName} completed 4x ${winningName} and finished in ${rankTitle}!`,
       'WIN'
     );
 
-    // If only 1 active player remains, assign 4th place and end match safely
+    // If only 1 active player remains, assign last place and end match safely
     const remainingActive = this.seats.filter((s) => s.finishedRank === null);
     if (remainingActive.length === 1) {
       const lastSeat = remainingActive[0];
-      lastSeat.finishedRank = 4;
+      const lastRank = this.seats.length;
+      lastSeat.finishedRank = lastRank;
       lastSeat.declaredAt = Date.now();
       lastSeat.winningCards = lastSeat.hand.map((c) => c.name);
 
       this.rankings.push({
-        rank: 4,
+        rank: lastRank,
         seatIndex: lastSeat.seatIndex,
         userId: lastSeat.userId,
         displayName: lastSeat.displayName,
@@ -361,7 +378,7 @@ export class ParchiGame {
         declaredAt: lastSeat.declaredAt,
       });
 
-      this.addLog(`Game Over! ${lastSeat.displayName} finished in 4th place.`, 'WIN');
+      this.addLog(`Game Over! ${lastSeat.displayName} finished in ${lastRank}th place.`, 'WIN');
       this.endMatch();
     }
   }
@@ -565,6 +582,8 @@ export class ParchiGame {
       rankings: this.rankings,
       lastTransfer: this.lastTransfer,
       logs: this.logs.slice(0, 15),
+      playerCount: this.playerCount,
+      customDeckConfig: this.customDeckConfig,
     };
   }
 

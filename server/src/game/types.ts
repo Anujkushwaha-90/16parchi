@@ -1,4 +1,17 @@
-export type CardTheme = 'royals' | 'seasons' | 'elements' | 'animals';
+export type CardTheme = 'royals' | 'seasons' | 'elements' | 'animals' | 'custom';
+
+export interface CustomParchiItem {
+  name: string;
+  count: number;
+  title?: string;
+  icon?: string;
+  color?: string;
+}
+
+export interface CustomDeckConfig {
+  isCustom: boolean;
+  items: CustomParchiItem[];
+}
 
 export interface ParchiCard {
   id: string;
@@ -10,7 +23,7 @@ export interface ParchiCard {
 }
 
 export interface PlayerSeat {
-  seatIndex: number; // 0, 1, 2, 3
+  seatIndex: number;
   userId: string;
   username: string;
   displayName: string;
@@ -76,6 +89,8 @@ export interface PublicGameState {
   rankings: RankingEntry[];
   lastTransfer: { fromSeat: number; toSeat: number; timestamp: number } | null;
   logs: GameLogEntry[];
+  playerCount: number;
+  customDeckConfig?: CustomDeckConfig | null;
 }
 
 export interface PrivatePlayerState extends PublicGameState {

@@ -3,6 +3,7 @@ import { prisma } from '../db.js';
 import { requireAuth, AuthRequest } from '../auth/middleware.js';
 import { GameManager } from '../game/manager.js';
 import { CardTheme } from '../game/types.js';
+import { validateDeckConfiguration } from '../game/themes.js';
 
 const router = Router();
 
@@ -16,12 +17,25 @@ function generateRoomCode(): string {
 }
 
 /**
- * Create a new private room
+ * Create a new private room with customizable player count and custom deck support
  */
 router.post('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!.id;
-    const { cardTheme = 'royals', turnTimeSeconds = 20 } = req.body;
+    const { cardTheme = 'royals', turnTimeSeconds = 20, maxPlayers = 4, customDeck } = req.body;
+
+    const numPlayers = parseInt(maxPlayers as any, 10);
+    if (isNaN(numPlayers) || numPlayers < 4 || numPlayers > 10) {
+      res.status(400).json({ error: 'Player count must be between 4 and 10 players.' });
+      return;
+    }
+
+    // Validate deck configuration on server before room creation
+    const validation = validateDeckConfiguration(numPlayers, customDeck, cardTheme as CardTheme);
+    if (!validation.valid) {
+      res.status(400).json({ error: validation.error });
+      return;
+    }
 
     let code = generateRoomCode();
     while (await prisma.gameRoom.findUnique({ where: { code } })) {
@@ -33,8 +47,9 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response): Promise<v
         code,
         hostId: userId,
         status: 'LOBBY',
-        maxPlayers: 4,
-        cardTheme,
+        maxPlayers: numPlayers,
+        cardTheme: customDeck && customDeck.isCustom ? 'custom' : cardTheme,
+        customDeckJson: customDeck && customDeck.isCustom ? JSON.stringify(customDeck) : null,
         turnTimeSeconds,
         members: {
           create: {
@@ -102,6 +117,89 @@ router.get('/:code', requireAuth, async (req: AuthRequest, res: Response): Promi
 });
 
 /**
+ * Update room settings before game starts (Host only)
+ */
+router.patch('/:code/settings', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { code } = req.params;
+    const userId = req.user!.id;
+    const { maxPlayers, customDeck, cardTheme, turnTimeSeconds } = req.body;
+
+    const room = await prisma.gameRoom.findUnique({
+      where: { code: code.toUpperCase() },
+      include: { members: true },
+    });
+
+    if (!room) {
+      res.status(404).json({ error: 'Room not found.' });
+      return;
+    }
+
+    if (room.hostId !== userId) {
+      res.status(403).json({ error: 'Only the room host can modify settings.' });
+      return;
+    }
+
+    if (room.status !== 'LOBBY') {
+      res.status(400).json({ error: 'Cannot modify room settings once match has started.' });
+      return;
+    }
+
+    const targetPlayers = typeof maxPlayers === 'number' ? maxPlayers : room.maxPlayers;
+    if (targetPlayers < 4 || targetPlayers > 10) {
+      res.status(400).json({ error: 'Player count must be between 4 and 10.' });
+      return;
+    }
+
+    if (targetPlayers < room.members.length) {
+      res.status(400).json({
+        error: `Cannot reduce player limit to ${targetPlayers} because ${room.members.length} players have already joined.`,
+      });
+      return;
+    }
+
+    const targetTheme = (cardTheme || room.cardTheme) as CardTheme;
+    let targetCustom = customDeck !== undefined ? customDeck : null;
+    if (customDeck === undefined && room.customDeckJson) {
+      try {
+        targetCustom = JSON.parse(room.customDeckJson);
+      } catch {}
+    }
+
+    // Validate the resulting deck configuration
+    const validation = validateDeckConfiguration(targetPlayers, targetCustom, targetTheme);
+    if (!validation.valid) {
+      res.status(400).json({ error: validation.error });
+      return;
+    }
+
+    const updated = await prisma.gameRoom.update({
+      where: { id: room.id },
+      data: {
+        maxPlayers: targetPlayers,
+        cardTheme: targetCustom && targetCustom.isCustom ? 'custom' : targetTheme,
+        customDeckJson: targetCustom && targetCustom.isCustom ? JSON.stringify(targetCustom) : null,
+        turnTimeSeconds: typeof turnTimeSeconds === 'number' ? turnTimeSeconds : room.turnTimeSeconds,
+      },
+      include: {
+        host: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+        members: {
+          include: {
+            user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+          },
+          orderBy: { seatIndex: 'asc' },
+        },
+      },
+    });
+
+    res.json({ success: true, room: updated });
+  } catch (err: any) {
+    console.error('Error updating room settings:', err);
+    res.status(500).json({ error: err.message || 'Failed to update settings' });
+  }
+});
+
+/**
  * Join room by code
  */
 router.post('/:code/join', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
@@ -131,16 +229,17 @@ router.post('/:code/join', requireAuth, async (req: AuthRequest, res: Response):
       return;
     }
 
-    // Check taken seat indexes
+    // Check taken seat indexes against room's maxPlayers
+    const maxPlayers = room.maxPlayers || 4;
     const occupiedSeats = new Set(room.members.map((m) => m.seatIndex));
-    if (occupiedSeats.size >= 4) {
-      res.status(400).json({ error: 'Room is full (Maximum 4 players).' });
+    if (occupiedSeats.size >= maxPlayers) {
+      res.status(400).json({ error: `Room is full (Maximum ${maxPlayers} players).` });
       return;
     }
 
-    // Find first free seat (0, 1, 2, 3)
+    // Find first free seat (0 ... maxPlayers - 1)
     let assignedSeat = 0;
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < maxPlayers; i++) {
       if (!occupiedSeats.has(i)) {
         assignedSeat = i;
         break;
@@ -245,16 +344,18 @@ router.post('/:code/bot', requireAuth, async (req: AuthRequest, res: Response): 
       return;
     }
 
+    const maxPlayers = room.maxPlayers || 4;
+
     if (action === 'add') {
       const occupiedSeats = new Set(room.members.map((m) => m.seatIndex));
-      if (occupiedSeats.size >= 4) {
-        res.status(400).json({ error: 'Room is already full' });
+      if (occupiedSeats.size >= maxPlayers) {
+        res.status(400).json({ error: `Room is already full (${maxPlayers}/${maxPlayers})` });
         return;
       }
 
       let freeSeat = typeof seatIndex === 'number' ? seatIndex : -1;
       if (freeSeat === -1 || occupiedSeats.has(freeSeat)) {
-        for (let i = 0; i < 4; i++) {
+        for (let i = 0; i < maxPlayers; i++) {
           if (!occupiedSeats.has(i)) {
             freeSeat = i;
             break;
@@ -262,7 +363,18 @@ router.post('/:code/bot', requireAuth, async (req: AuthRequest, res: Response): 
         }
       }
 
-      const botNames = ['Chanakya (AI)', 'Birbal (AI)', 'Tenali (AI)', 'Vikram (AI)'];
+      const botNames = [
+        'Chanakya (AI)',
+        'Birbal (AI)',
+        'Tenali (AI)',
+        'Vikram (AI)',
+        'Betaal (AI)',
+        'Aryabhata (AI)',
+        'Kautilya (AI)',
+        'Ashoka (AI)',
+        'Prithviraj (AI)',
+        'Harsha (AI)',
+      ];
       const botName = botNames[freeSeat] || `AI Bot ${freeSeat + 1}`;
 
       await prisma.roomMember.create({
@@ -352,7 +464,7 @@ router.post('/:code/leave', requireAuth, async (req: AuthRequest, res: Response)
 });
 
 /**
- * Start match (Host only, all 4 seats occupied & ready)
+ * Start match (Host only, all seats occupied & ready)
  */
 router.post('/:code/start', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -374,9 +486,11 @@ router.post('/:code/start', requireAuth, async (req: AuthRequest, res: Response)
       return;
     }
 
-    if (room.members.length < 4) {
+    const maxPlayers = room.maxPlayers || 4;
+
+    if (room.members.length < maxPlayers) {
       res.status(400).json({
-        error: 'Exactly 4 players/bots are required to start 16 Parchi. Fill empty seats with AI bots or invite friends!',
+        error: `Exactly ${maxPlayers} players/bots are required to start this room. Currently ${room.members.length}/${maxPlayers} joined. Fill empty seats with AI bots or invite friends!`,
       });
       return;
     }
@@ -384,6 +498,20 @@ router.post('/:code/start', requireAuth, async (req: AuthRequest, res: Response)
     const notReady = room.members.some((m) => !m.isReady);
     if (notReady) {
       res.status(400).json({ error: 'All players must be ready before starting.' });
+      return;
+    }
+
+    // Server-side deck validation before starting
+    let parsedCustom = null;
+    if (room.customDeckJson) {
+      try {
+        parsedCustom = JSON.parse(room.customDeckJson);
+      } catch {}
+    }
+
+    const validation = validateDeckConfiguration(maxPlayers, parsedCustom, room.cardTheme as CardTheme);
+    if (!validation.valid) {
+      res.status(400).json({ error: validation.error });
       return;
     }
 

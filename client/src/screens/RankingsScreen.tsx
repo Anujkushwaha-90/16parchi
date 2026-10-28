@@ -66,10 +66,9 @@ export const RankingsScreen: React.FC<RankingsScreenProps> = ({
           border: 'border-amber-700',
           glow: 'shadow-md',
         };
-      case 4:
       default:
         return {
-          title: '4th Place (Lost)',
+          title: `${rank}th Place`,
           color: 'from-stone-700 to-stone-900',
           border: 'border-stone-700',
           glow: 'shadow-none',

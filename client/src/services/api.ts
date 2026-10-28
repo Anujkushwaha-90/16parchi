@@ -120,10 +120,25 @@ class ApiService {
   }
 
   // Rooms
-  public createRoom(cardTheme: string = 'royals', turnTimeSeconds: number = 20) {
+  public createRoom(
+    cardTheme: string = 'royals',
+    turnTimeSeconds: number = 20,
+    maxPlayers: number = 4,
+    customDeck?: any
+  ) {
     return this.request('/rooms', {
       method: 'POST',
-      body: JSON.stringify({ cardTheme, turnTimeSeconds }),
+      body: JSON.stringify({ cardTheme, turnTimeSeconds, maxPlayers, customDeck }),
+    });
+  }
+
+  public updateRoomSettings(
+    code: string,
+    settings: { maxPlayers?: number; customDeck?: any; cardTheme?: string; turnTimeSeconds?: number }
+  ) {
+    return this.request(`/rooms/${code}/settings`, {
+      method: 'PATCH',
+      body: JSON.stringify(settings),
     });
   }
 

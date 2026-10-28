@@ -69,14 +69,31 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
   const mySeat = publicState.seats[mySeatIndex];
   const isMyTurn = publicState.activeSeat === mySeatIndex && mySeat.finishedRank === null;
 
+  const totalSeats = publicState.seats.length;
+
   // Relative seating calculation around circular table:
-  // South: YOU (Seat mySeatIndex)
-  // West: Next clockwise (mySeatIndex + 1) % 4
-  // North: Across (mySeatIndex + 2) % 4
-  // East: Previous (mySeatIndex + 3) % 4
-  const westSeat = publicState.seats[(mySeatIndex + 1) % 4];
-  const northSeat = publicState.seats[(mySeatIndex + 2) % 4];
-  const eastSeat = publicState.seats[(mySeatIndex + 3) % 4];
+  // Find eligible clockwise pass target for mySeat
+  let passTargetSeatIndex = -1;
+  for (let step = 1; step <= totalSeats; step++) {
+    const nextIdx = (mySeatIndex + step) % totalSeats;
+    if (publicState.seats[nextIdx].finishedRank === null) {
+      passTargetSeatIndex = nextIdx;
+      break;
+    }
+  }
+  const passTargetSeat = passTargetSeatIndex !== -1 ? publicState.seats[passTargetSeatIndex] : null;
+
+  // 4-player specific positions
+  const westSeat = publicState.seats[(mySeatIndex + 1) % totalSeats];
+  const northSeat = publicState.seats[(mySeatIndex + 2) % totalSeats];
+  const eastSeat = publicState.seats[(mySeatIndex + 3) % totalSeats];
+
+  // All opponents in clockwise order from mySeatIndex for dynamic N-player layouts
+  const opponentsClockwise: PublicPlayerSeat[] = [];
+  for (let step = 1; step < totalSeats; step++) {
+    const seatIdx = (mySeatIndex + step) % totalSeats;
+    opponentsClockwise.push(publicState.seats[seatIdx]);
+  }
 
   const handleSelectCard = (card: ParchiCard) => {
     if (!isMyTurn) return;
@@ -221,7 +238,7 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
           <div className="w-36 h-36 sm:w-48 sm:h-48 rounded-full border border-gold-500/20 bg-emerald-950/40 flex flex-col items-center justify-center text-center opacity-60">
             <Crown className="w-12 h-12 text-gold-400/40 mb-1" />
             <span className="font-serif font-black text-sm tracking-widest text-gold-200/50">
-              16 PARCHI
+              {totalSeats * 4} PARCHI
             </span>
             <span className="text-[10px] font-mono text-emerald-400/60 uppercase">
               Clockwise Table
@@ -229,32 +246,62 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
           </div>
         </div>
 
-        {/* NORTH: Opponent Across (Seat +2) */}
-        <div className="z-10">{renderOpponentPod(northSeat, 'North')}</div>
-
-        {/* MIDDLE ROW: WEST & EAST OPPONENTS */}
-        <div className="w-full flex items-center justify-between px-2 sm:px-8 z-10">
-          {/* WEST: Clockwise Target (Seat +1) */}
-          <div className="flex flex-col items-center">
-            <div className="text-[10px] font-mono text-gold-400/80 mb-1 flex items-center gap-1">
-              <span>Pass Target</span>
-              <ArrowRight className="w-3 h-3" />
-            </div>
-            {renderOpponentPod(westSeat, 'West')}
+        {/* Transfer Notification in center of table */}
+        {publicState.lastTransfer && (
+          <div className="z-15 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 border border-gold-500/30 text-[11px] font-mono text-gold-300 animate-fade-in shadow-md mb-2">
+            <span>{publicState.seats[publicState.lastTransfer.fromSeat]?.displayName}</span>
+            <ArrowRight className="w-3 h-3 text-gold-400" />
+            <span>{publicState.seats[publicState.lastTransfer.toSeat]?.displayName}</span>
           </div>
+        )}
 
-          {/* Transfer Notification in center of table */}
-          {publicState.lastTransfer && (
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 border border-gold-500/30 text-[11px] font-mono text-gold-300 animate-fade-in">
-              <span>{publicState.seats[publicState.lastTransfer.fromSeat]?.displayName}</span>
-              <ArrowRight className="w-3 h-3 text-gold-400" />
-              <span>{publicState.seats[publicState.lastTransfer.toSeat]?.displayName}</span>
+        {/* Dynamic Opponent Seating Layout */}
+        {totalSeats === 4 ? (
+          <>
+            {/* NORTH: Opponent Across (Seat +2) */}
+            <div className="z-10">{renderOpponentPod(northSeat, 'North')}</div>
+
+            {/* MIDDLE ROW: WEST & EAST OPPONENTS */}
+            <div className="w-full flex items-center justify-between px-2 sm:px-8 z-10">
+              {/* WEST: Clockwise Target (Seat +1) */}
+              <div className="flex flex-col items-center">
+                {passTargetSeat?.seatIndex === westSeat.seatIndex && (
+                  <div className="text-[10px] font-mono text-gold-400/80 mb-1 flex items-center gap-1 font-bold">
+                    <span>Pass Target</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </div>
+                )}
+                {renderOpponentPod(westSeat, 'West')}
+              </div>
+
+              {/* EAST: Clockwise Sender (Seat +3) */}
+              <div className="flex flex-col items-center">
+                {passTargetSeat?.seatIndex === eastSeat.seatIndex && (
+                  <div className="text-[10px] font-mono text-gold-400/80 mb-1 flex items-center gap-1 font-bold">
+                    <span>Pass Target</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </div>
+                )}
+                {renderOpponentPod(eastSeat, 'East')}
+              </div>
             </div>
-          )}
-
-          {/* EAST: Clockwise Sender (Seat +3) */}
-          <div>{renderOpponentPod(eastSeat, 'East')}</div>
-        </div>
+          </>
+        ) : (
+          /* N > 4 players: Opponent Gallery Rail */
+          <div className="w-full flex items-center justify-center gap-3 sm:gap-6 flex-wrap z-10 px-2 my-2">
+            {opponentsClockwise.map((seat) => (
+              <div key={seat.seatIndex} className="flex flex-col items-center">
+                {seat.seatIndex === passTargetSeat?.seatIndex && (
+                  <div className="text-[10px] font-mono text-gold-400 mb-1 flex items-center gap-1 font-bold animate-pulse">
+                    <span>Pass Target</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </div>
+                )}
+                {renderOpponentPod(seat, `Seat ${seat.seatIndex + 1}`)}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* SOUTH: YOU (The Player's interactive Hand) */}
         <div className="z-20 w-full flex flex-col items-center">
@@ -266,7 +313,7 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
                 className="gold-gradient-btn px-8 py-3 rounded-2xl text-base font-black shadow-gold-glow flex items-center gap-2 border-2 border-white ring-4 ring-gold-400/50"
               >
                 <Trophy className="w-6 h-6 fill-current text-table-dark" />
-                <span>🎉 DECLARE 16 PARCHI NOW!</span>
+                <span>🎉 DECLARE {totalSeats * 4} PARCHI NOW!</span>
               </button>
             </div>
           )}
@@ -316,7 +363,7 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
                   <Send className="w-4 h-4" />
                   <span>
                     {selectedCardId
-                      ? `Pass Selected Slip to ${westSeat.displayName} (${publicState.timeRemaining}s)`
+                      ? `Pass Selected Slip to ${passTargetSeat ? passTargetSeat.displayName : 'Next Player'} (${publicState.timeRemaining}s)`
                       : '👆 Tap an unwanted parchi above to pass'}
                   </span>
                 </button>

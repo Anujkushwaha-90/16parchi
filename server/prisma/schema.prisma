@@ -71,6 +71,7 @@ model GameRoom {
   status          String   @default("LOBBY") // LOBBY, IN_GAME, FINISHED
   maxPlayers      Int      @default(4)
   cardTheme       String   @default("royals") // royals, seasons, elements, animals
+  customDeckJson  String?  // JSON string storing CustomDeckConfig if custom mode enabled
   turnTimeSeconds Int      @default(20)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

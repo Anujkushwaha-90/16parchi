@@ -61,6 +61,16 @@ export class GameManager {
       throw new Error('Room not found');
     }
 
+    const maxPlayers = room.maxPlayers || 4;
+    let customDeckConfig: any = null;
+    if (room.customDeckJson) {
+      try {
+        customDeckConfig = JSON.parse(room.customDeckJson);
+      } catch (e) {
+        console.error('Failed to parse room customDeckJson:', e);
+      }
+    }
+
     const players: Array<{
       userId: string;
       username: string;
@@ -70,8 +80,8 @@ export class GameManager {
       seatIndex: number;
     }> = [];
 
-    // Ensure 4 seats
-    for (let seatIdx = 0; seatIdx < 4; seatIdx++) {
+    // Ensure maxPlayers seats
+    for (let seatIdx = 0; seatIdx < maxPlayers; seatIdx++) {
       const member = room.members.find((m) => m.seatIndex === seatIdx);
       if (member && member.user) {
         players.push({
@@ -125,7 +135,9 @@ export class GameManager {
       room.code,
       players,
       theme,
-      turnTimeSeconds
+      turnTimeSeconds,
+      customDeckConfig,
+      maxPlayers
     );
 
     game.setCallbacks(

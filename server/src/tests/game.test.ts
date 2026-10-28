@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ParchiGame } from '../game/engine.js';
-import { generateDeck } from '../game/themes.js';
+import { generateDeck, validateDeckConfiguration } from '../game/themes.js';
 
 describe('16 PARCHI Master Test Suite', () => {
   const dummyPlayers = [
@@ -358,6 +358,241 @@ describe('16 PARCHI Master Test Suite', () => {
       expect(game.rankings[2].rank).toBe(3);
       expect(game.rankings[3].rank).toBe(4);
       expect(game.rankings[3].displayName).toBe('David');
+    });
+  });
+
+  describe('Section 10: Custom Player Count & Custom Parchi Names', () => {
+    const fivePlayers = [
+      ...dummyPlayers,
+      {
+        userId: 'user_5',
+        username: 'eva',
+        displayName: 'Eva',
+        avatarUrl: 'https://avatar/5',
+        isBot: false,
+        seatIndex: 4,
+      },
+    ];
+
+    it('rejects fewer than 4 players', () => {
+      const result = validateDeckConfiguration(3);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('At least 4 players');
+    });
+
+    it('accepts valid configurations with 4 or more players up to the maximum (4, 5, 6, 8, 10)', () => {
+      for (const count of [4, 5, 6, 7, 8, 9, 10]) {
+        const result = validateDeckConfiguration(count);
+        expect(result.valid).toBe(true);
+        expect(result.totalCards).toBe(count * 4);
+      }
+    });
+
+    it('generates the expected standard deck for N players (4 x N cards)', () => {
+      const deck5 = generateDeck('royals', 5);
+      expect(deck5).toHaveLength(20);
+
+      const deck6 = generateDeck('seasons', 6);
+      expect(deck6).toHaveLength(24);
+
+      const deck8 = generateDeck('elements', 8);
+      expect(deck8).toHaveLength(32);
+    });
+
+    it('rejects custom decks with empty names, duplicates, or non-positive quantities', () => {
+      // Empty name
+      const emptyRes = validateDeckConfiguration(4, {
+        isCustom: true,
+        items: [
+          { name: 'Raja', count: 4 },
+          { name: ' ', count: 4 },
+          { name: 'Chor', count: 4 },
+          { name: 'Sipahi', count: 4 },
+        ],
+      });
+      expect(emptyRes.valid).toBe(false);
+      expect(emptyRes.error).toContain('cannot be empty');
+
+      // Duplicate name (case insensitive)
+      const dupRes = validateDeckConfiguration(4, {
+        isCustom: true,
+        items: [
+          { name: 'King', count: 4 },
+          { name: 'king', count: 4 },
+          { name: 'Queen', count: 4 },
+          { name: 'Jack', count: 4 },
+        ],
+      });
+      expect(dupRes.valid).toBe(false);
+      expect(dupRes.error).toContain('Duplicate parchi name');
+
+      // Invalid quantity (< 1)
+      const qtyRes = validateDeckConfiguration(4, {
+        isCustom: true,
+        items: [
+          { name: 'Raja', count: 0 },
+          { name: 'Rani', count: 4 },
+          { name: 'Chor', count: 4 },
+          { name: 'Sipahi', count: 4 },
+        ],
+      });
+      expect(qtyRes.valid).toBe(false);
+      expect(qtyRes.error).toContain('positive whole number');
+    });
+
+    it('rejects custom decks with insufficient cards (< 4 x playerCount) or too few unique names', () => {
+      // 5 players but only 16 cards
+      const notEnoughCards = validateDeckConfiguration(5, {
+        isCustom: true,
+        items: [
+          { name: 'A', count: 4 },
+          { name: 'B', count: 4 },
+          { name: 'C', count: 4 },
+          { name: 'D', count: 4 },
+        ],
+      });
+      expect(notEnoughCards.valid).toBe(false);
+      expect(notEnoughCards.error).toContain('requires at least 20 parchis');
+
+      // 5 players with 20 cards but only 4 unique names (5 of each)
+      const notEnoughUnique = validateDeckConfiguration(5, {
+        isCustom: true,
+        items: [
+          { name: 'A', count: 5 },
+          { name: 'B', count: 5 },
+          { name: 'C', count: 5 },
+          { name: 'D', count: 5 },
+        ],
+      });
+      expect(notEnoughUnique.valid).toBe(false);
+      expect(notEnoughUnique.error).toContain('unique parchi identities');
+    });
+
+    it('correctly validates, saves, and generates custom names in Hindi, English, and Unicode with custom quantities', () => {
+      const customConfig = {
+        isCustom: true,
+        items: [
+          { name: 'राजा (King)', count: 4 },
+          { name: 'रानी (Queen)', count: 4 },
+          { name: 'चोर (Thief)', count: 4 },
+          { name: 'सिपाही (Guard)', count: 4 },
+          { name: 'वज़ीर 👑', count: 4 },
+        ],
+      };
+
+      const val = validateDeckConfiguration(5, customConfig);
+      expect(val.valid).toBe(true);
+      expect(val.totalCards).toBe(20);
+
+      const deck = generateDeck('royals', 5, customConfig);
+      expect(deck).toHaveLength(20);
+
+      const uniqueNames = new Set(deck.map((c) => c.name));
+      expect(uniqueNames.size).toBe(5);
+      expect(uniqueNames.has('राजा (King)')).toBe(true);
+      expect(uniqueNames.has('वज़ीर 👑')).toBe(true);
+    });
+
+    it('initializes and deals exactly 4 cards to each player in an N-player game (5 players = 20 cards)', () => {
+      const game = new ParchiGame('match_5p', 'room_5p', 'CODE55', fivePlayers, 'royals', 20, null, 5);
+      game.startMatch();
+
+      expect(game.status).toBe('ACTIVE');
+      expect(game.seats).toHaveLength(5);
+      for (let i = 0; i < 5; i++) {
+        expect(game.seats[i].hand).toHaveLength(4);
+      }
+
+      const totalCards = game.seats.reduce((sum, s) => sum + s.hand.length, 0);
+      expect(totalCards).toBe(20);
+    });
+
+    it('maintains circular turn order for 5 players (0 -> 1 -> 2 -> 3 -> 4 -> 0)', () => {
+      const game = new ParchiGame('match_5p', 'room_5p', 'CODE55', fivePlayers, 'royals', 20, null, 5);
+      game.startMatch();
+
+      expect(game.activeSeat).toBe(0);
+      expect(game.getNextActiveSeat(0)).toBe(1);
+      expect(game.getNextActiveSeat(1)).toBe(2);
+      expect(game.getNextActiveSeat(2)).toBe(3);
+      expect(game.getNextActiveSeat(3)).toBe(4);
+      expect(game.getNextActiveSeat(4)).toBe(0);
+    });
+
+    it('correctly skips finished players in N-player circular turns', () => {
+      const game = new ParchiGame('match_5p', 'room_5p', 'CODE55', fivePlayers, 'royals', 20, null, 5);
+      game.startMatch();
+
+      // Finish Seat 1 and Seat 3
+      game.finishSeat(1, 'RANI');
+      game.finishSeat(3, 'SIPAHI');
+
+      // Seat 0 now passes directly to Seat 2 (skipping 1)
+      expect(game.getNextActiveSeat(0)).toBe(2);
+      // Seat 2 now passes directly to Seat 4 (skipping 3)
+      expect(game.getNextActiveSeat(2)).toBe(4);
+      // Seat 4 passes to Seat 0
+      expect(game.getNextActiveSeat(4)).toBe(0);
+    });
+
+    it('winning check works with custom Hindi/Unicode names and finishes sender after pass', () => {
+      const customConfig = {
+        isCustom: true,
+        items: [
+          { name: 'सुपरहीरो', count: 4 },
+          { name: 'जादूगर', count: 4 },
+          { name: 'योद्धा', count: 4 },
+          { name: 'शहंशाह', count: 4 },
+          { name: 'खिलाड़ी', count: 4 },
+        ],
+      };
+
+      const game = new ParchiGame('match_custom', 'room_c', 'CUST01', fivePlayers, 'royals', 20, customConfig, 5);
+      game.startMatch();
+
+      // Manually set player 0 hand to 4 identical custom parchis + 1 unwanted card (5 cards total, e.g. after receiving)
+      game.seats[0].hand = [
+        { id: 'c1', name: 'सुपरहीरो', theme: 'royals', color: 'gold' },
+        { id: 'c2', name: 'सुपरहीरो', theme: 'royals', color: 'gold' },
+        { id: 'c3', name: 'सुपरहीरो', theme: 'royals', color: 'gold' },
+        { id: 'c4', name: 'सुपरहीरो', theme: 'royals', color: 'gold' },
+        { id: 'unwanted', name: 'जादूगर', theme: 'royals', color: 'cyan' },
+      ];
+
+      // Player 0 passes unwanted card
+      const passResult = game.passCard('user_1', 'unwanted');
+      expect(passResult.success).toBe(true);
+
+      // Remaining hand has exactly 4 'सुपरहीरो' parchis
+      expect(game.seats[0].hand).toHaveLength(4);
+      expect(game.checkFourOfAKind(game.seats[0].hand)).toBe(true);
+      expect(game.getWinningCardName(game.seats[0].hand)).toBe('सुपरहीरो');
+
+      // Sender is immediately finished with 1st place and their custom card name
+      expect(game.seats[0].finishedRank).toBe(1);
+      expect(game.seats[0].winningCards).toEqual(['सुपरहीरो', 'सुपरहीरो', 'सुपरहीरो', 'सुपरहीरो']);
+      expect(game.rankings).toHaveLength(1);
+      expect(game.rankings[0].cardName).toBe('सुपरहीरो');
+      expect(game.rankings[0].displayName).toBe('Alice');
+    });
+
+    it('concludes an N-player match when only 1 active player remains, assigning Nth place', () => {
+      const game = new ParchiGame('match_5p_end', 'room_5pe', 'CODE5E', fivePlayers, 'royals', 20, 5);
+      game.startMatch();
+
+      game.finishSeat(0, 'A');
+      game.finishSeat(1, 'B');
+      game.finishSeat(2, 'C');
+      expect(game.status).toBe('ACTIVE');
+
+      // Finish Seat 3 -> only Seat 4 (Eva) remains out of 5 players
+      game.finishSeat(3, 'D');
+
+      expect(game.status).toBe('FINISHED');
+      expect(game.seats[4].finishedRank).toBe(5);
+      expect(game.rankings).toHaveLength(5);
+      expect(game.rankings[4].rank).toBe(5);
+      expect(game.rankings[4].displayName).toBe('Eva');
     });
   });
 });

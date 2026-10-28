@@ -1,4 +1,18 @@
-export type CardTheme = 'royals' | 'seasons' | 'elements' | 'animals';
+export type CardTheme = 'royals' | 'seasons' | 'elements' | 'animals' | 'custom';
+
+export interface CustomParchiItem {
+  id?: string;
+  name: string;
+  count: number;
+  title?: string;
+  icon?: string;
+  color?: string;
+}
+
+export interface CustomDeckConfig {
+  isCustom: boolean;
+  items: CustomParchiItem[];
+}
 
 export interface ParchiCard {
   id: string;
@@ -72,6 +86,8 @@ export interface PublicGameState {
   rankings: RankingEntry[];
   lastTransfer: { fromSeat: number; toSeat: number; timestamp: number } | null;
   logs: GameLogEntry[];
+  playerCount: number;
+  customDeckConfig?: CustomDeckConfig | null;
 }
 
 export interface PrivatePlayerState extends PublicGameState {
@@ -89,6 +105,7 @@ export interface GameRoom {
   status: 'LOBBY' | 'IN_GAME' | 'FINISHED';
   maxPlayers: number;
   cardTheme: CardTheme;
+  customDeckJson?: string | null;
   turnTimeSeconds: number;
   host: {
     id: string;
