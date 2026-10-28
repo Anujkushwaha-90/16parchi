@@ -47,6 +47,7 @@ export class ParchiGame {
   private timerInterval: NodeJS.Timeout | null = null;
   private onStateChangeCallback: (() => void) | null = null;
   private onBotTurnCallback: ((seatIndex: number) => void) | null = null;
+  private isProcessingTransfer: boolean = false;
 
   constructor(
     matchId: string,
@@ -168,36 +169,33 @@ export class ParchiGame {
         return next;
       }
     }
-    return (fromSeat + 1) % 4;
+    return fromSeat;
   }
 
   /**
-   * Check if a hand has 4 identical cards
+   * Check if a hand has exactly 4 identical cards
    */
   public checkFourOfAKind(hand: ParchiCard[]): boolean {
-    if (hand.length < 4) return false;
-    const counts: Record<string, number> = {};
-    for (const card of hand) {
-      counts[card.name] = (counts[card.name] || 0) + 1;
-      if (counts[card.name] >= 4) return true;
-    }
-    return false;
+    if (hand.length !== 4) return false;
+    const first = hand[0].name;
+    return hand.every((c) => c.name === first);
   }
 
   /**
    * Get the card name that has 4 copies in hand, or null
    */
   public getWinningCardName(hand: ParchiCard[]): string | null {
-    const counts: Record<string, number> = {};
-    for (const card of hand) {
-      counts[card.name] = (counts[card.name] || 0) + 1;
-      if (counts[card.name] >= 4) return card.name;
-    }
-    return null;
+    if (hand.length !== 4) return null;
+    const first = hand[0].name;
+    return hand.every((c) => c.name === first) ? first : null;
   }
 
   /**
    * Pass a parchi from active player to next active player clockwise
+   * Strictly implements Section 2 & 3 rules:
+   * - One-way transfer (sender hand -1, receiver hand +1)
+   * - Post-transfer win check occurs ONLY on sender's remaining hand,
+   *   and ONLY if sender now has EXACTLY 4 parchis remaining.
    */
   public passCard(
     senderUserId: string,
@@ -205,6 +203,10 @@ export class ParchiGame {
   ): { success: boolean; error?: string } {
     if (this.status !== 'ACTIVE') {
       return { success: false, error: 'Match is not active.' };
+    }
+
+    if (this.isProcessingTransfer) {
+      return { success: false, error: 'Transfer already in progress.' };
     }
 
     const currentSeat = this.seats[this.activeSeat];
@@ -224,44 +226,73 @@ export class ParchiGame {
     const targetSeatIndex = this.getNextActiveSeat(this.activeSeat);
     const targetSeat = this.seats[targetSeatIndex];
 
-    // Atomic transfer
-    const [cardToPass] = currentSeat.hand.splice(cardIndex, 1);
-    targetSeat.hand.push(cardToPass);
-    targetSeat.lastReceivedCardId = cardToPass.id;
-
-    this.lastTransfer = {
-      fromSeat: this.activeSeat,
-      toSeat: targetSeatIndex,
-      timestamp: Date.now(),
-    };
-
-    this.addLog(
-      `${currentSeat.displayName} passed a parchi to ${targetSeat.displayName}`,
-      'TRANSFER'
-    );
-
-    // If target seat is an AI bot and now holds 4-of-a-kind, bot immediately declares!
-    if (targetSeat.isBot && this.checkFourOfAKind(targetSeat.hand)) {
-      this.declareWin(targetSeatIndex);
-      return { success: true };
+    if (targetSeat.finishedRank !== null || targetSeatIndex === this.activeSeat) {
+      return { success: false, error: 'No eligible active receiver.' };
     }
 
-    // Move turn to the receiver or next active seat
-    this.advanceTurn(targetSeatIndex);
+    this.isProcessingTransfer = true;
+    try {
+      // 1. Remove selected parchi from sender's hand
+      const [cardToPass] = currentSeat.hand.splice(cardIndex, 1);
 
-    return { success: true };
+      // 2. Add that parchi to receiver's hand
+      targetSeat.hand.push(cardToPass);
+      targetSeat.lastReceivedCardId = cardToPass.id;
+
+      // 3. Sender's hand decreases by 1, receiver's hand increases by 1
+      currentSeat.hasPassedInTurn = true;
+      this.lastTransfer = {
+        fromSeat: this.activeSeat,
+        toSeat: targetSeatIndex,
+        timestamp: Date.now(),
+      };
+
+      this.addLog(
+        `${currentSeat.displayName} passed a parchi to ${targetSeat.displayName}`,
+        'TRANSFER'
+      );
+
+      // 4. Exact Winning Check — Only After Transfer
+      // Check sender's remaining hand.
+      // Run 4-identical winning check ONLY if sender now has EXACTLY 4 parchis remaining.
+      if (currentSeat.hand.length === 4) {
+        const firstCardName = currentSeat.hand[0].name;
+        const isAllIdentical = currentSeat.hand.every((c) => c.name === firstCardName);
+        if (isAllIdentical) {
+          this.finishSeat(this.activeSeat, firstCardName);
+        }
+      }
+
+      // If match finished, notify and return
+      if (this.status === 'FINISHED') {
+        this.notifyState();
+        return { success: true };
+      }
+
+      // 5. Advance turn to next eligible active player in circular order
+      const nextTurnSeat = this.getNextActiveSeat(this.activeSeat);
+      this.advanceTurn(nextTurnSeat);
+
+      return { success: true };
+    } finally {
+      this.isProcessingTransfer = false;
+    }
   }
 
   /**
-   * Advance turn
+   * Advance turn to the next eligible active player
    */
   private advanceTurn(nextSeatIndex: number): void {
     if (this.status === 'FINISHED') return;
 
-    // Check if match should end (3 players finished)
-    const finishedCount = this.seats.filter((s) => s.finishedRank !== null).length;
-    if (finishedCount >= 3) {
-      this.endMatch();
+    // Check if match should end (only 1 active player remains)
+    const remainingActive = this.seats.filter((s) => s.finishedRank === null);
+    if (remainingActive.length <= 1) {
+      if (remainingActive.length === 1) {
+        this.finishSeat(remainingActive[0].seatIndex, remainingActive[0].hand[0]?.name || 'PARCHI');
+      } else {
+        this.endMatch();
+      }
       return;
     }
 
@@ -281,34 +312,16 @@ export class ParchiGame {
   }
 
   /**
-   * Declare a win for a seat
+   * Mark a seat as FINISHED in authoritative event order
    */
-  public declareWin(seatIndex: number): { success: boolean; error?: string } {
+  public finishSeat(seatIndex: number, winningName: string): void {
     const seat = this.seats[seatIndex];
-    if (!seat) return { success: false, error: 'Seat not found' };
-
-    if (seat.finishedRank !== null) {
-      return { success: false, error: 'Player already has a ranking.' };
-    }
-
-    const winningName = this.getWinningCardName(seat.hand);
-    if (!winningName) {
-      return {
-        success: false,
-        error: 'Cannot declare: You do not have 4 identical parchis!',
-      };
-    }
+    if (!seat || seat.finishedRank !== null) return;
 
     const rank = this.rankings.length + 1;
     seat.finishedRank = rank;
     seat.declaredAt = Date.now();
-
-    // Isolate exactly 4 winning cards
-    const winningCards = seat.hand.filter((c) => c.name === winningName).slice(0, 4);
-    const extraCards = seat.hand.filter((c) => !winningCards.some((w) => w.id === c.id));
-
-    seat.winningCards = winningCards.map((c) => c.name);
-    seat.hand = winningCards; // Locked with exactly 4 cards!
+    seat.winningCards = seat.hand.map((c) => c.name);
 
     const rankingEntry: RankingEntry = {
       rank,
@@ -325,24 +338,14 @@ export class ParchiGame {
 
     const rankTitles = ['1st Place 🏆', '2nd Place 🥈', '3rd Place 🥉', '4th Place'];
     this.addLog(
-      `🎉 ${seat.displayName} completed 4x ${winningName} and won ${rankTitles[rank - 1]}!`,
+      `🎉 ${seat.displayName} completed 4x ${winningName} and finished ${rankTitles[rank - 1] || `${rank}th Place`}!`,
       'WIN'
     );
 
-    // Forward any extra non-winning slips to the next active player to preserve the 4-cards-per-active-player invariant!
-    const nextActiveSeat = this.getNextActiveSeat(seatIndex);
-    if (extraCards.length > 0 && nextActiveSeat !== seatIndex) {
-      this.seats[nextActiveSeat].hand.push(...extraCards);
-      this.addLog(
-        `${seat.displayName} passed remaining slip to ${this.seats[nextActiveSeat].displayName}`,
-        'TRANSFER'
-      );
-    }
-
-    // If 3 players have now finished, assign 4th place to the remaining player and finish match
-    const remainingUnfinished = this.seats.filter((s) => s.finishedRank === null);
-    if (remainingUnfinished.length === 1) {
-      const lastSeat = remainingUnfinished[0];
+    // If only 1 active player remains, assign 4th place and end match safely
+    const remainingActive = this.seats.filter((s) => s.finishedRank === null);
+    if (remainingActive.length === 1) {
+      const lastSeat = remainingActive[0];
       lastSeat.finishedRank = 4;
       lastSeat.declaredAt = Date.now();
       lastSeat.winningCards = lastSeat.hand.map((c) => c.name);
@@ -360,20 +363,35 @@ export class ParchiGame {
 
       this.addLog(`Game Over! ${lastSeat.displayName} finished in 4th place.`, 'WIN');
       this.endMatch();
-      return { success: true };
+    }
+  }
+
+  /**
+   * Authoritative win declaration: requires exactly 4 cards, all identical
+   */
+  public declareWin(seatIndex: number): { success: boolean; error?: string } {
+    const seat = this.seats[seatIndex];
+    if (!seat) return { success: false, error: 'Seat not found' };
+    if (seat.finishedRank !== null) return { success: false, error: 'Player already has a ranking.' };
+
+    if (seat.hand.length !== 4) {
+      return {
+        success: false,
+        error: 'Cannot declare: You must have exactly 4 identical parchis!',
+      };
     }
 
-    // Check if any remaining active bot already has 4-of-a-kind (e.g. from receiving the forwarded card)
-    for (const rem of remainingUnfinished) {
-      if (rem.isBot && this.checkFourOfAKind(rem.hand)) {
-        this.declareWin(rem.seatIndex);
-        return { success: true };
-      }
+    const firstCardName = seat.hand[0].name;
+    const isFourOfAKind = seat.hand.every((c) => c.name === firstCardName);
+    if (!isFourOfAKind) {
+      return {
+        success: false,
+        error: 'Cannot declare: You do not have 4 identical parchis!',
+      };
     }
 
-    // Move turn to the next active seat
-    this.advanceTurn(nextActiveSeat);
-
+    this.finishSeat(seatIndex, firstCardName);
+    this.notifyState();
     return { success: true };
   }
 
@@ -492,13 +510,7 @@ export class ParchiGame {
   public executeBotTurn(seatIndex: number): void {
     if (this.status !== 'ACTIVE' || this.activeSeat !== seatIndex) return;
     const botSeat = this.seats[seatIndex];
-    if (!botSeat || !botSeat.isBot || botSeat.hand.length === 0) return;
-
-    // Check if bot already has 4-of-a-kind
-    if (this.checkFourOfAKind(botSeat.hand)) {
-      this.declareWin(seatIndex);
-      return;
-    }
+    if (!botSeat || !botSeat.isBot || botSeat.finishedRank !== null || botSeat.hand.length === 0) return;
 
     const cardToPass = this.getCardToPass(botSeat.hand, botSeat.lastReceivedCardId);
     this.passCard(botSeat.userId, cardToPass.id);
