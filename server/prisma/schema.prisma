@@ -1,0 +1,143 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id               String   @id @default(uuid())
+  firebaseUid      String?  @unique
+  email            String?
+  username         String   @unique
+  displayName      String
+  avatarUrl        String
+  friendCode       String   @unique
+  gamesPlayed      Int      @default(0)
+  gamesWon         Int      @default(0)
+  secondPlaceCount Int      @default(0)
+  thirdPlaceCount  Int      @default(0)
+  fourthPlaceCount Int      @default(0)
+  isOnline         Boolean  @default(false)
+  lastSeenAt       DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  sentFriendRequests     FriendRequest[] @relation("SentRequests")
+  receivedFriendRequests FriendRequest[] @relation("ReceivedRequests")
+
+  friendshipsInitiated Friendship[] @relation("FriendshipA")
+  friendshipsReceived  Friendship[] @relation("FriendshipB")
+
+  hostedRooms  GameRoom[]
+  roomMembers  RoomMember[]
+  sentInvites  RoomInvite[] @relation("SentInvites")
+  recvInvites  RoomInvite[] @relation("RecvInvites")
+  matchPlayers MatchPlayer[]
+}
+
+model FriendRequest {
+  id         String   @id @default(uuid())
+  senderId   String
+  receiverId String
+  status     String   @default("PENDING") // PENDING, ACCEPTED, REJECTED, CANCELLED
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  sender   User @relation("SentRequests", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("ReceivedRequests", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+}
+
+model Friendship {
+  id        String   @id @default(uuid())
+  userAId   String
+  userBId   String
+  createdAt DateTime @default(now())
+
+  userA User @relation("FriendshipA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User @relation("FriendshipB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId])
+}
+
+model GameRoom {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  hostId          String
+  status          String   @default("LOBBY") // LOBBY, IN_GAME, FINISHED
+  maxPlayers      Int      @default(4)
+  cardTheme       String   @default("royals") // royals, seasons, elements, animals
+  turnTimeSeconds Int      @default(20)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  host    User         @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  members RoomMember[]
+  invites RoomInvite[]
+  matches Match[]
+}
+
+model RoomMember {
+  id        String   @id @default(uuid())
+  roomId    String
+  userId    String?
+  seatIndex Int
+  isReady   Boolean  @default(false)
+  isBot     Boolean  @default(false)
+  botName   String?
+  botAvatar String?
+  joinedAt  DateTime @default(now())
+
+  room GameRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, seatIndex])
+}
+
+model RoomInvite {
+  id        String   @id @default(uuid())
+  roomId    String
+  inviterId String
+  inviteeId String
+  status    String   @default("PENDING") // PENDING, ACCEPTED, DECLINED, EXPIRED
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  room    GameRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  inviter User     @relation("SentInvites", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee User     @relation("RecvInvites", fields: [inviteeId], references: [id], onDelete: Cascade)
+}
+
+model Match {
+  id              String    @id @default(uuid())
+  roomId          String
+  hostId          String
+  startedAt       DateTime  @default(now())
+  endedAt         DateTime?
+  durationSeconds Int?
+  rankingsJson    String?   // Array of { rank: 1|2|3|4, userId: string, name: string, isBot: boolean }
+  totalRounds     Int       @default(0)
+  eventLogsJson   String?
+
+  room    GameRoom      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  players MatchPlayer[]
+}
+
+model MatchPlayer {
+  id           String  @id @default(uuid())
+  matchId      String
+  userId       String?
+  isBot        Boolean @default(false)
+  playerName   String
+  avatarUrl    String
+  seatIndex    Int
+  finalRank    Int? // 1, 2, 3, 4
+  winningCards String? // e.g. "RAJA,RAJA,RAJA,RAJA"
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
