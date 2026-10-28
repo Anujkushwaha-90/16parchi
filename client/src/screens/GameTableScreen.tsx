@@ -169,7 +169,7 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
   };
 
   return (
-    <div className="relative min-h-[calc(100vh-4rem)] flex flex-col justify-between max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 select-none">
+    <div className="relative min-h-[calc(100vh-4rem)] flex flex-col justify-between max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 pb-24 select-none">
       {/* Top Game Bar */}
       <div className="flex items-center justify-between bg-table-surface/90 px-4 py-2.5 rounded-2xl border border-table-border shadow-md">
         <div className="flex items-center gap-3">
@@ -301,24 +301,31 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
           </div>
 
           {/* Pass Action Button Bar */}
-          {isMyTurn && mySeat.finishedRank === null && (
-            <div className="mt-4 flex items-center gap-3">
-              <button
-                disabled={!selectedCardId}
-                onClick={handlePassCard}
-                className={`px-8 py-3 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all ${
-                  selectedCardId
-                    ? 'gold-gradient-btn shadow-gold-glow hover:scale-105 active:scale-95'
-                    : 'bg-table-card border border-table-border text-stone-500 cursor-not-allowed'
-                }`}
-              >
-                <Send className="w-4 h-4" />
-                <span>
-                  {selectedCardId
-                    ? `Pass Slip to ${westSeat.displayName} (${publicState.timeRemaining}s)`
-                    : 'Select a parchi to pass clockwise'}
-                </span>
-              </button>
+          {mySeat.finishedRank === null && (
+            <div className="mt-4 flex items-center justify-center gap-3">
+              {isMyTurn ? (
+                <button
+                  disabled={!selectedCardId}
+                  onClick={handlePassCard}
+                  className={`px-8 py-3.5 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all shadow-lg ${
+                    selectedCardId
+                      ? 'gold-gradient-btn shadow-gold-glow hover:scale-105 active:scale-95 animate-pulse'
+                      : 'bg-table-card border border-table-border text-stone-400'
+                  }`}
+                >
+                  <Send className="w-4 h-4" />
+                  <span>
+                    {selectedCardId
+                      ? `Pass Selected Slip to ${westSeat.displayName} (${publicState.timeRemaining}s)`
+                      : '👆 Tap an unwanted parchi above to pass'}
+                  </span>
+                </button>
+              ) : (
+                <div className="px-5 py-2.5 rounded-2xl bg-table-dark/80 border border-table-border text-xs text-stone-300 font-semibold flex items-center gap-2 shadow">
+                  <Clock className="w-3.5 h-3.5 text-gold-400 animate-spin" />
+                  <span>Waiting for {publicState.seats[publicState.activeSeat]?.displayName} to pass clockwise...</span>
+                </div>
+              )}
             </div>
           )}
         </div>

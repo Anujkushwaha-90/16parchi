@@ -216,5 +216,31 @@ describe('16 PARCHI Master Test Suite', () => {
       expect(game.rankings[2].displayName).toBe('Charlie');
       expect(game.rankings[3].displayName).toBe('David');
     });
+
+    it('strictly preserves 4-card banking invariant when winning with 5 cards and forwards extra slip', () => {
+      const game = new ParchiGame('match_1', 'room_1', 'CODE12', dummyPlayers, 'royals', 20);
+      game.startMatch();
+
+      // Alice receives a 5th card and now has 4 RAJA + 1 CHOR
+      game.seats[0].hand = [
+        { id: '1', name: 'RAJA', theme: 'royals', title: 'Raja', icon: 'Crown', color: '#f59e0b' },
+        { id: '2', name: 'RAJA', theme: 'royals', title: 'Raja', icon: 'Crown', color: '#f59e0b' },
+        { id: '3', name: 'RAJA', theme: 'royals', title: 'Raja', icon: 'Crown', color: '#f59e0b' },
+        { id: '4', name: 'RAJA', theme: 'royals', title: 'Raja', icon: 'Crown', color: '#f59e0b' },
+        { id: 'extra', name: 'CHOR', theme: 'royals', title: 'Chor', icon: 'Moon', color: '#6366f1' },
+      ];
+
+      const bobHandLengthBefore = game.seats[1].hand.length;
+      const aliceWin = game.declareWin(0);
+      expect(aliceWin.success).toBe(true);
+
+      // Alice must now hold EXACTLY 4 cards (only the winning 4 RAJAs)
+      expect(game.seats[0].hand).toHaveLength(4);
+      expect(game.seats[0].hand.every((c) => c.name === 'RAJA')).toBe(true);
+
+      // The extra CHOR card was forwarded to Bob (Seat 1)
+      expect(game.seats[1].hand).toHaveLength(bobHandLengthBefore + 1);
+      expect(game.seats[1].hand.some((c) => c.id === 'extra')).toBe(true);
+    });
   });
 });

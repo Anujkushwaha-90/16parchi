@@ -23,6 +23,7 @@ export interface PlayerSeat {
   finishedRank: number | null; // 1, 2, 3, 4
   winningCards: string[] | null;
   declaredAt: number | null;
+  lastReceivedCardId?: string;
 }
 
 export interface PublicPlayerSeat {

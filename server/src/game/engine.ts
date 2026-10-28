@@ -227,6 +227,7 @@ export class ParchiGame {
     // Atomic transfer
     const [cardToPass] = currentSeat.hand.splice(cardIndex, 1);
     targetSeat.hand.push(cardToPass);
+    targetSeat.lastReceivedCardId = cardToPass.id;
 
     this.lastTransfer = {
       fromSeat: this.activeSeat,
@@ -238,6 +239,12 @@ export class ParchiGame {
       `${currentSeat.displayName} passed a parchi to ${targetSeat.displayName}`,
       'TRANSFER'
     );
+
+    // If target seat is an AI bot and now holds 4-of-a-kind, bot immediately declares!
+    if (targetSeat.isBot && this.checkFourOfAKind(targetSeat.hand)) {
+      this.declareWin(targetSeatIndex);
+      return { success: true };
+    }
 
     // Move turn to the receiver or next active seat
     this.advanceTurn(targetSeatIndex);
@@ -295,7 +302,13 @@ export class ParchiGame {
     const rank = this.rankings.length + 1;
     seat.finishedRank = rank;
     seat.declaredAt = Date.now();
-    seat.winningCards = seat.hand.map((c) => c.name);
+
+    // Isolate exactly 4 winning cards
+    const winningCards = seat.hand.filter((c) => c.name === winningName).slice(0, 4);
+    const extraCards = seat.hand.filter((c) => !winningCards.some((w) => w.id === c.id));
+
+    seat.winningCards = winningCards.map((c) => c.name);
+    seat.hand = winningCards; // Locked with exactly 4 cards!
 
     const rankingEntry: RankingEntry = {
       rank,
@@ -315,6 +328,16 @@ export class ParchiGame {
       `🎉 ${seat.displayName} completed 4x ${winningName} and won ${rankTitles[rank - 1]}!`,
       'WIN'
     );
+
+    // Forward any extra non-winning slips to the next active player to preserve the 4-cards-per-active-player invariant!
+    const nextActiveSeat = this.getNextActiveSeat(seatIndex);
+    if (extraCards.length > 0 && nextActiveSeat !== seatIndex) {
+      this.seats[nextActiveSeat].hand.push(...extraCards);
+      this.addLog(
+        `${seat.displayName} passed remaining slip to ${this.seats[nextActiveSeat].displayName}`,
+        'TRANSFER'
+      );
+    }
 
     // If 3 players have now finished, assign 4th place to the remaining player and finish match
     const remainingUnfinished = this.seats.filter((s) => s.finishedRank === null);
@@ -337,15 +360,19 @@ export class ParchiGame {
 
       this.addLog(`Game Over! ${lastSeat.displayName} finished in 4th place.`, 'WIN');
       this.endMatch();
-    } else {
-      // If the player who just won was the active seat, move turn to next active seat
-      if (this.activeSeat === seatIndex) {
-        const nextSeat = this.getNextActiveSeat(seatIndex);
-        this.advanceTurn(nextSeat);
-      } else {
-        this.notifyState();
+      return { success: true };
+    }
+
+    // Check if any remaining active bot already has 4-of-a-kind (e.g. from receiving the forwarded card)
+    for (const rem of remainingUnfinished) {
+      if (rem.isBot && this.checkFourOfAKind(rem.hand)) {
+        this.declareWin(rem.seatIndex);
+        return { success: true };
       }
     }
+
+    // Move turn to the next active seat
+    this.advanceTurn(nextActiveSeat);
 
     return { success: true };
   }
@@ -392,27 +419,52 @@ export class ParchiGame {
   private handleTurnTimeout(): void {
     const currentSeat = this.seats[this.activeSeat];
     if (currentSeat && currentSeat.hand.length > 0) {
-      // Choose card to pass: pick lowest frequency card
-      const cardToPass = this.getCardToPass(currentSeat.hand);
+      const cardToPass = this.getCardToPass(currentSeat.hand, currentSeat.lastReceivedCardId);
       this.addLog(`${currentSeat.displayName} timed out. Auto-passing a parchi.`, 'SYSTEM');
       this.passCard(currentSeat.userId, cardToPass.id);
     }
   }
 
   /**
-   * Smart card selection: keeps cards with highest count, passes the rarest card
+   * Strategic card selection:
+   * 1. Identifies the bot's target suit (the identity it holds the most of)
+   * 2. Protects the target suit cards and only selects from non-matching suits
+   * 3. Implements anti-ping-pong: avoids passing back the card just received if another non-matching card is available
    */
-  public getCardToPass(hand: ParchiCard[]): ParchiCard {
+  public getCardToPass(hand: ParchiCard[], lastReceivedCardId?: string): ParchiCard {
+    if (hand.length <= 1) return hand[0];
+
     const counts: Record<string, number> = {};
     for (const card of hand) {
       counts[card.name] = (counts[card.name] || 0) + 1;
     }
 
-    // Find card with lowest frequency (or random among lowest)
-    let minCount = 999;
-    let chosenCard = hand[0];
+    // Identify target identity with the most copies in hand
+    let maxCount = -1;
+    let targetSuit = '';
+    for (const [name, count] of Object.entries(counts)) {
+      if (count > maxCount) {
+        maxCount = count;
+        targetSuit = name;
+      }
+    }
 
-    for (const card of hand) {
+    // Select candidates from non-target identities only
+    const nonTargetCards = hand.filter((c) => c.name !== targetSuit);
+    const candidatePool = nonTargetCards.length > 0 ? nonTargetCards : hand;
+
+    // Anti-ping-pong: if possible, avoid immediately bouncing back the card just received
+    if (lastReceivedCardId && candidatePool.length > 1) {
+      const otherCandidates = candidatePool.filter((c) => c.id !== lastReceivedCardId);
+      if (otherCandidates.length > 0) {
+        return otherCandidates[0];
+      }
+    }
+
+    // Return the card with lowest frequency among candidates
+    let minCount = 999;
+    let chosenCard = candidatePool[0];
+    for (const card of candidatePool) {
       if (counts[card.name] < minCount) {
         minCount = counts[card.name];
         chosenCard = card;
@@ -426,12 +478,11 @@ export class ParchiGame {
     if (this.status !== 'ACTIVE') return;
     const currentSeat = this.seats[this.activeSeat];
     if (currentSeat && currentSeat.isBot && this.onBotTurnCallback) {
-      // Slight realistic human-like delay for bot turn
       setTimeout(() => {
         if (this.status === 'ACTIVE' && this.activeSeat === currentSeat.seatIndex) {
           this.onBotTurnCallback!(currentSeat.seatIndex);
         }
-      }, 1200);
+      }, 1000);
     }
   }
 
@@ -449,7 +500,7 @@ export class ParchiGame {
       return;
     }
 
-    const cardToPass = this.getCardToPass(botSeat.hand);
+    const cardToPass = this.getCardToPass(botSeat.hand, botSeat.lastReceivedCardId);
     this.passCard(botSeat.userId, cardToPass.id);
   }
 
