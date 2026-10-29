@@ -45,13 +45,16 @@ const io = new Server(server, {
 
 setupGameSockets(io);
 
-// Start server
-server.listen(CONFIG.PORT, () => {
-  console.log(`===============================================`);
-  console.log(`🎴 16 PARCHI Real-time Multiplayer Server`);
-  console.log(`🚀 Server listening on http://localhost:${CONFIG.PORT}`);
-  console.log(`📡 Socket.IO initialized for real-time play`);
-  console.log(`===============================================`);
-});
+// Start server only in non-serverless environments
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  server.listen(CONFIG.PORT, () => {
+    console.log(`===============================================`);
+    console.log(`🎴 16 PARCHI Real-time Multiplayer Server`);
+    console.log(`🚀 Server listening on http://localhost:${CONFIG.PORT}`);
+    console.log(`📡 Socket.IO initialized for real-time play`);
+    console.log(`===============================================`);
+  });
+}
 
+export default app;
 export { app, server };
