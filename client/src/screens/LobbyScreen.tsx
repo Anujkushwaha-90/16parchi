@@ -436,18 +436,18 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
         </div>
 
         {/* Bottom Control Bar */}
-        <div className="mt-10 pt-6 border-t border-table-border flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="mt-8 sm:mt-10 pt-6 border-t border-table-border flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
           {/* Ready status toggle */}
           <button
             onClick={handleToggleReady}
-            className={`w-full sm:w-auto px-6 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+            className={`w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all ${
               isReady
                 ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-glow'
                 : 'border border-gold-500/50 bg-gold-500/10 text-gold-300 hover:bg-gold-500/20'
             }`}
           >
-            <CheckCircle2 className="w-4 h-4" />
-            <span>{isReady ? 'You are Ready! (Click to Unready)' : 'Click to Ready Up'}</span>
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{isReady ? 'Ready! (Tap to unready)' : 'Click to Ready Up'}</span>
           </button>
 
           {/* Host Start Match Button */}
@@ -455,13 +455,13 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
             <button
               disabled={!allReady || starting}
               onClick={handleStartGame}
-              className={`w-full sm:w-auto px-8 py-3.5 rounded-2xl text-sm font-black flex items-center justify-center gap-2 transition-all ${
+              className={`w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-3.5 rounded-2xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all ${
                 allReady && !starting
                   ? 'gold-gradient-btn shadow-gold-glow animate-pulse'
                   : 'bg-table-card border border-table-border text-stone-500 cursor-not-allowed'
               }`}
             >
-              <Play className="w-5 h-5 fill-current" />
+              <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current shrink-0" />
               <span>
                 {starting
                   ? 'Starting Match...'
@@ -473,9 +473,9 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
               </span>
             </button>
           ) : (
-            <div className="text-xs text-stone-400 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-gold-400" />
-              <span>Waiting for Host to start the match once everyone is ready...</span>
+            <div className="text-[11px] sm:text-xs text-stone-400 flex items-center gap-2 text-center">
+              <Clock className="w-4 h-4 text-gold-400 shrink-0" />
+              <span>Waiting for Host to start once everyone is ready...</span>
             </div>
           )}
         </div>

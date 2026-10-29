@@ -16,8 +16,10 @@ try {
     firebaseInitialized = true;
     console.log('✅ Firebase Admin SDK initialized with service account.');
   } else {
-    // Check if default credentials available
-    admin.initializeApp();
+    // Use Application Default Credentials with explicit project
+    admin.initializeApp({
+      projectId: process.env.GCLOUD_PROJECT || 'parchi-b8190',
+    });
     firebaseInitialized = true;
     console.log('✅ Firebase Admin SDK initialized with default credentials.');
   }

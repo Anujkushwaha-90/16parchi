@@ -147,7 +147,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </div>
 
           {/* Quick Win Rate Pill */}
-          <div className="flex items-center gap-3 bg-table-dark/80 px-4 py-3 rounded-2xl border border-table-border">
+          <div className="flex items-center gap-3 bg-table-dark/80 px-4 py-3 rounded-2xl border border-table-border w-full sm:w-auto justify-between sm:justify-start">
             <div className="p-2.5 rounded-xl bg-gold-500/10 text-gold-400">
               <Trophy className="w-6 h-6" />
             </div>

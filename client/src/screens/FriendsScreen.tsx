@@ -189,13 +189,25 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = () => {
                 className="p-3 rounded-2xl bg-table-card border border-table-border flex items-center justify-between"
               >
                 <div className="flex items-center gap-3">
-                  <img
-                    src={target.avatarUrl}
-                    alt={target.displayName}
-                    className="w-9 h-9 rounded-full border border-gold-400/40 object-cover bg-emerald-950"
-                  />
+                  <div className="relative">
+                    <img
+                      src={target.avatarUrl}
+                      alt={target.displayName}
+                      className="w-9 h-9 rounded-full border border-gold-400/40 object-cover bg-emerald-950"
+                    />
+                    <div
+                      className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-table-card ${
+                        target.isOnline ? 'bg-emerald-400' : 'bg-stone-500'
+                      }`}
+                    />
+                  </div>
                   <div>
-                    <div className="text-sm font-bold text-ivory-100">{target.displayName}</div>
+                    <div className="text-sm font-bold text-ivory-100 flex items-center gap-1.5">
+                      <span>{target.displayName}</span>
+                      {target.isOnline && (
+                        <span className="text-[10px] text-emerald-400 font-mono font-normal">Online</span>
+                      )}
+                    </div>
                     <div className="text-xs text-stone-400 font-mono">
                       @{target.username} • {target.friendCode}
                     </div>

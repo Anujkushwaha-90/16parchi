@@ -58,6 +58,16 @@ router.patch('/profile', requireAuth, async (req: AuthRequest, res: Response): P
     const { displayName, avatarUrl } = req.body;
     const userId = req.user!.id;
 
+    // Check displayName uniqueness if being updated
+    if (displayName) {
+      const trimmed = displayName.trim().substring(0, 30);
+      const existing = await prisma.user.findUnique({ where: { displayName: trimmed } });
+      if (existing && existing.id !== userId) {
+        res.status(400).json({ error: 'This display name is already taken. Please choose another.' });
+        return;
+      }
+    }
+
     const updated = await prisma.user.update({
       where: { id: userId },
       data: {

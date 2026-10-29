@@ -12,7 +12,7 @@ model User {
   firebaseUid      String?  @unique
   email            String?
   username         String   @unique
-  displayName      String
+  displayName      String   @unique
   avatarUrl        String
   friendCode       String   @unique
   gamesPlayed      Int      @default(0)

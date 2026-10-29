@@ -188,37 +188,40 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
   return (
     <div className="relative min-h-[calc(100vh-4rem)] flex flex-col justify-between max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 pb-24 select-none">
       {/* Top Game Bar */}
-      <div className="flex items-center justify-between bg-table-surface/90 px-4 py-2.5 rounded-2xl border border-table-border shadow-md">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-gold-400 font-bold text-sm tracking-wider">
-              ROOM {publicState.roomCode}
+      <div className="flex items-center justify-between bg-table-surface/90 px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl border border-table-border shadow-md gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <span className="font-mono text-gold-400 font-bold text-xs sm:text-sm tracking-wider">
+              {publicState.roomCode}
             </span>
-            <span className="text-xs px-2 py-0.5 rounded bg-black/40 text-stone-400 font-mono">
-              Round {publicState.roundNumber} • Turn {publicState.turnNumber}
+            <span className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded bg-black/40 text-stone-400 font-mono">
+              <span className="sm:hidden">R{publicState.roundNumber}·T{publicState.turnNumber}</span>
+              <span className="hidden sm:inline">Round {publicState.roundNumber} • Turn {publicState.turnNumber}</span>
             </span>
           </div>
         </div>
 
         {/* Active Turn Announcement */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 text-center overflow-hidden">
           {isMyTurn ? (
-            <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-gold-500/20 border border-gold-500/50 text-gold-300 text-xs font-bold shadow-gold-glow animate-pulse">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>YOUR TURN TO PASS A PARCHI! ({publicState.timeRemaining}s)</span>
+            <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-xl bg-gold-500/20 border border-gold-500/50 text-gold-300 text-[11px] sm:text-xs font-bold shadow-gold-glow animate-pulse truncate">
+              <Sparkles className="w-3.5 h-3.5 shrink-0" />
+              <span className="sm:hidden">YOUR TURN ({publicState.timeRemaining}s)</span>
+              <span className="hidden sm:inline">YOUR TURN TO PASS A PARCHI! ({publicState.timeRemaining}s)</span>
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-xs text-stone-400 font-semibold">
-              <Clock className="w-3.5 h-3.5 text-stone-400" />
-              <span>
-                {publicState.seats[publicState.activeSeat]?.displayName}'s turn ({publicState.timeRemaining}s)
+            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-stone-400 font-semibold truncate">
+              <Clock className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+              <span className="truncate">
+                <span className="sm:hidden">{publicState.seats[publicState.activeSeat]?.displayName} ({publicState.timeRemaining}s)</span>
+                <span className="hidden sm:inline">{publicState.seats[publicState.activeSeat]?.displayName}'s turn ({publicState.timeRemaining}s)</span>
               </span>
             </div>
           )}
         </div>
 
         {/* Chat Toggle & Exit */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setShowChat(!showChat)}
             className="p-2 rounded-xl bg-table-card border border-table-border text-stone-300 hover:text-gold-400 transition-colors relative"
@@ -310,18 +313,18 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
             <div className="mb-3 animate-bounce">
               <button
                 onClick={handleDeclareWin}
-                className="gold-gradient-btn px-8 py-3 rounded-2xl text-base font-black shadow-gold-glow flex items-center gap-2 border-2 border-white ring-4 ring-gold-400/50"
+                className="gold-gradient-btn px-4 sm:px-8 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-base font-black shadow-gold-glow flex items-center gap-2 border-2 border-white ring-4 ring-gold-400/50"
               >
-                <Trophy className="w-6 h-6 fill-current text-table-dark" />
-                <span>🎉 DECLARE {totalSeats * 4} PARCHI NOW!</span>
+                <Trophy className="w-5 h-5 sm:w-6 sm:h-6 fill-current text-table-dark shrink-0" />
+                <span>🎉 DECLARE {totalSeats * 4} PARCHI!</span>
               </button>
             </div>
           )}
 
           {/* Finished placement message if user already won */}
           {mySeat.finishedRank && (
-            <div className="mb-3 px-6 py-2 rounded-2xl bg-emerald-600/90 text-white font-serif font-black text-sm flex items-center gap-2 shadow-lg">
-              <Trophy className="w-5 h-5 text-gold-300" />
+            <div className="mb-3 px-4 sm:px-6 py-2 rounded-2xl bg-emerald-600/90 text-white font-serif font-black text-xs sm:text-sm flex items-center gap-2 shadow-lg">
+              <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-gold-300 shrink-0" />
               <span>
                 YOU FINISHED IN {mySeat.finishedRank === 1 ? '1ST PLACE 🏆' : `${mySeat.finishedRank}TH PLACE`}!
               </span>
@@ -329,7 +332,7 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
           )}
 
           {/* Your 4 Parchis */}
-          <div className="flex items-center justify-center gap-2 sm:gap-4 flex-wrap">
+          <div className="flex items-center justify-center gap-1.5 sm:gap-4 flex-wrap max-w-full px-1">
             {privateState.myHand.map((card) => {
               const isSelected = selectedCardId === card.id;
               const isPassing = passingCardId === card.id;
@@ -349,28 +352,42 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
 
           {/* Pass Action Button Bar */}
           {mySeat.finishedRank === null && (
-            <div className="mt-4 flex items-center justify-center gap-3">
+            <div className="mt-3 sm:mt-4 flex items-center justify-center gap-3 w-full px-2">
               {isMyTurn ? (
                 <button
                   disabled={!selectedCardId}
                   onClick={handlePassCard}
-                  className={`px-8 py-3.5 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all shadow-lg ${
+                  className={`w-full sm:w-auto px-5 sm:px-8 py-3 sm:py-3.5 rounded-2xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all shadow-lg ${
                     selectedCardId
                       ? 'gold-gradient-btn shadow-gold-glow hover:scale-105 active:scale-95 animate-pulse'
                       : 'bg-table-card border border-table-border text-stone-400'
                   }`}
                 >
-                  <Send className="w-4 h-4" />
+                  <Send className="w-4 h-4 shrink-0" />
                   <span>
-                    {selectedCardId
-                      ? `Pass Selected Slip to ${passTargetSeat ? passTargetSeat.displayName : 'Next Player'} (${publicState.timeRemaining}s)`
-                      : '👆 Tap an unwanted parchi above to pass'}
+                    {selectedCardId ? (
+                      <>
+                        <span className="sm:hidden">
+                          Pass to {passTargetSeat ? passTargetSeat.displayName.split(' ')[0] : 'Next'} ({publicState.timeRemaining}s)
+                        </span>
+                        <span className="hidden sm:inline">
+                          Pass Selected Slip to {passTargetSeat ? passTargetSeat.displayName : 'Next Player'} ({publicState.timeRemaining}s)
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="sm:hidden">👆 Tap a parchi above to pass</span>
+                        <span className="hidden sm:inline">👆 Tap an unwanted parchi above to pass</span>
+                      </>
+                    )}
                   </span>
                 </button>
               ) : (
-                <div className="px-5 py-2.5 rounded-2xl bg-table-dark/80 border border-table-border text-xs text-stone-300 font-semibold flex items-center gap-2 shadow">
-                  <Clock className="w-3.5 h-3.5 text-gold-400 animate-spin" />
-                  <span>Waiting for {publicState.seats[publicState.activeSeat]?.displayName} to pass clockwise...</span>
+                <div className="w-full sm:w-auto px-4 sm:px-5 py-2.5 rounded-2xl bg-table-dark/80 border border-table-border text-[11px] sm:text-xs text-stone-300 font-semibold flex items-center justify-center gap-2 shadow text-center">
+                  <Clock className="w-3.5 h-3.5 text-gold-400 animate-spin shrink-0" />
+                  <span className="truncate">
+                    Waiting for {publicState.seats[publicState.activeSeat]?.displayName} to pass...
+                  </span>
                 </div>
               )}
             </div>
@@ -380,7 +397,7 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
 
       {/* Live Table Chat Drawer / Side Panel */}
       {showChat && (
-        <div className="fixed bottom-16 right-4 sm:right-8 z-40 w-80 bg-table-surface border border-table-border rounded-3xl shadow-2xl p-4 flex flex-col h-80">
+        <div className="fixed bottom-16 inset-x-2 sm:inset-x-auto sm:right-8 z-40 sm:w-80 bg-table-surface border border-table-border rounded-3xl shadow-2xl p-4 flex flex-col h-80">
           <div className="flex items-center justify-between border-b border-table-border pb-2 mb-2">
             <div className="text-xs font-bold text-ivory-100 flex items-center gap-1.5">
               <MessageSquare className="w-3.5 h-3.5 text-gold-400" />

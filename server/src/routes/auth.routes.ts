@@ -50,6 +50,14 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
         friendCode = generateFriendCode();
       }
 
+      // Ensure displayName is unique — if taken, append a number
+      let baseDisplayName = decoded.name || finalUsername;
+      let finalDisplayName = baseDisplayName;
+      let dnCounter = 1;
+      while (await prisma.user.findUnique({ where: { displayName: finalDisplayName } })) {
+        finalDisplayName = `${baseDisplayName}${dnCounter++}`;
+      }
+
       const avatarUrl =
         decoded.picture ||
         `https://api.dicebear.com/7.x/adventurer/svg?seed=${finalUsername}`;
@@ -59,7 +67,7 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
           firebaseUid: decoded.uid,
           email: decoded.email,
           username: finalUsername,
-          displayName: decoded.name || finalUsername,
+          displayName: finalDisplayName,
           avatarUrl,
           friendCode,
           isOnline: true,
@@ -109,11 +117,19 @@ router.post('/dev-login', async (req: Request, res: Response): Promise<void> => 
         friendCode = generateFriendCode();
       }
 
+      // Ensure displayName is unique — append number if already taken
+      let baseDisplayName = displayName || cleanUsername;
+      let finalDisplayName = baseDisplayName;
+      let dnCounter = 1;
+      while (await prisma.user.findUnique({ where: { displayName: finalDisplayName } })) {
+        finalDisplayName = `${baseDisplayName}${dnCounter++}`;
+      }
+
       const seed = avatarSeed || cleanUsername;
       user = await prisma.user.create({
         data: {
           username: cleanUsername,
-          displayName: displayName || cleanUsername,
+          displayName: finalDisplayName,
           avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=${seed}`,
           friendCode,
           isOnline: true,

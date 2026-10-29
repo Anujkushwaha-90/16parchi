@@ -151,7 +151,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           ) : (
             <button
-              onClick={() => onNavigate('auth')}
+              onClick={() => onNavigate('dashboard')}
               className="gold-gradient-btn px-4 py-1.5 rounded-xl text-xs font-bold shadow-md"
             >
               Sign In
