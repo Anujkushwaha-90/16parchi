@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: parchi-server
+    env: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: CLIENT_URL
+        value: https://client-ashy-omega-85.vercel.app
+      - key: DATABASE_URL
+        value: file:./dev.db
+      - key: JWT_SECRET
+        generateValue: true
