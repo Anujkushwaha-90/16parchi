@@ -1,5 +1,10 @@
 import dotenv from 'dotenv';
+import path from 'path';
+
+// Load server .env, server .env.local, root .env.local
 dotenv.config();
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+dotenv.config({ path: path.resolve(process.cwd(), '../.env.local') });
 
 export const CONFIG = {
   PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 4000,

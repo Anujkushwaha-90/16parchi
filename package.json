@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "16 Parchi Online Real-Time Multiplayer Web Game",
   "scripts": {
+    "build": "npm run build:server && npm run build:client",
     "install:all": "cd server && npm install && cd ../client && npm install",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
@@ -10,7 +11,17 @@
     "build:client": "cd client && npm run build",
     "test:server": "cd server && npm run test"
   },
-  "keywords": ["16-parchi", "multiplayer", "board-game", "socketio", "react"],
+  "keywords": [
+    "16-parchi",
+    "multiplayer",
+    "board-game",
+    "socketio",
+    "react"
+  ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@neon/config": "^1.9.6",
+    "@neon/env": "^1.6.6"
+  }
 }

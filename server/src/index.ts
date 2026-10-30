@@ -16,7 +16,7 @@ const server = http.createServer(app);
 // Cross-Origin Resource Sharing configuration
 app.use(
   cors({
-    origin: [CONFIG.CLIENT_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: (origin, callback) => callback(null, true),
     credentials: true,
   })
 );
@@ -38,7 +38,7 @@ app.get('/health', (req, res) => {
 // Setup Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: [CONFIG.CLIENT_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: (origin, callback) => callback(null, true),
     credentials: true,
   },
 });

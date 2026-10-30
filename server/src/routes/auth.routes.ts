@@ -90,7 +90,7 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
     });
   } catch (error: any) {
     console.error('Google Auth Error:', error);
-    res.status(500).json({ error: 'Authentication failed.' });
+    res.status(500).json({ error: 'Authentication failed.', details: error?.message || String(error) });
   }
 });
 
@@ -149,9 +149,9 @@ router.post('/dev-login', async (req: Request, res: Response): Promise<void> => 
       token: sessionToken,
       user,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Dev Login Error:', error);
-    res.status(500).json({ error: 'Dev login failed.' });
+    res.status(500).json({ error: 'Dev login failed.', details: error?.message || String(error) });
   }
 });
 
