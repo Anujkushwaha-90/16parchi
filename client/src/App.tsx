@@ -13,12 +13,14 @@ import { GameTableScreen } from './screens/GameTableScreen.js';
 import { RankingsScreen } from './screens/RankingsScreen.js';
 import { MatchHistoryScreen } from './screens/MatchHistoryScreen.js';
 import { SettingsScreen } from './screens/SettingsScreen.js';
+import { PublicProfileScreen } from './screens/PublicProfileScreen.js';
 
 function MainApp() {
   const { user, loading } = useAuth();
   const { publicState } = useGameSocket();
   const [currentScreen, setCurrentScreen] = useState<string>('landing');
   const [activeRoomCode, setActiveRoomCode] = useState<string>('');
+  const [activeProfileCode, setActiveProfileCode] = useState<string>('');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
 
   // Auto-redirect to dashboard when authenticated on landing page
@@ -28,11 +30,16 @@ function MainApp() {
     }
   }, [user]);
 
-  // Check URL params for direct room link (e.g. ?room=PR8K2M)
+  // Check URL params for direct room link (e.g. ?room=PR8K2M) or public profile (?code=PARCHI-XXXX or ?profile=...)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const roomParam = params.get('room');
-    if (roomParam) {
+    const profileParam = params.get('code') || params.get('user') || params.get('profile') || params.get('id');
+
+    if (profileParam) {
+      setActiveProfileCode(profileParam);
+      setCurrentScreen('profile');
+    } else if (roomParam) {
       setActiveRoomCode(roomParam.toUpperCase());
       if (user) {
         setCurrentScreen('lobby');
@@ -65,10 +72,13 @@ function MainApp() {
     );
   }
 
-  const handleNavigate = (screen: string) => {
-    if (!user && screen !== 'landing') {
+  const handleNavigate = (screen: string, extraParam?: string) => {
+    if (!user && screen !== 'landing' && screen !== 'profile') {
       setIsAuthModalOpen(true);
       return;
+    }
+    if (screen === 'profile') {
+      setActiveProfileCode(extraParam || user?.friendCode || user?.username || '');
     }
     setCurrentScreen(screen);
   };
@@ -101,7 +111,7 @@ function MainApp() {
         )}
 
         {currentScreen === 'friends' && (
-          <FriendsScreen />
+          <FriendsScreen onNavigate={handleNavigate} />
         )}
 
         {currentScreen === 'rooms' && (
@@ -138,6 +148,13 @@ function MainApp() {
 
         {currentScreen === 'settings' && (
           <SettingsScreen onNavigate={handleNavigate} />
+        )}
+
+        {currentScreen === 'profile' && (
+          <PublicProfileScreen
+            identifier={activeProfileCode}
+            onNavigate={handleNavigate}
+          />
         )}
       </main>
 

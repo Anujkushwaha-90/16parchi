@@ -108,8 +108,15 @@ export function validateDeckConfiguration(
   const requiredParchis = 4 * playerCount;
 
   // Custom Deck Validation
-  if (customDeckConfig && customDeckConfig.isCustom) {
-    const items = customDeckConfig.items || [];
+  if (
+    customDeckConfig &&
+    (customDeckConfig.isCustom ||
+      Array.isArray((customDeckConfig as any).items) ||
+      Array.isArray(customDeckConfig))
+  ) {
+    const items = Array.isArray(customDeckConfig)
+      ? (customDeckConfig as any)
+      : customDeckConfig.items || [];
     if (items.length === 0) {
       return {
         valid: false,

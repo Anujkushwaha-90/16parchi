@@ -49,7 +49,7 @@ export const Card: React.FC<CardProps> = ({
       onClick={!disabled ? onClick : undefined}
       className={`parchi-card relative transition-all duration-300 flex flex-col justify-between cursor-pointer select-none border ${
         isSelected ? 'selected ring-4 ring-gold-400 ring-offset-2 ring-offset-table-dark' : ''
-      } ${isPassing ? 'opacity-40 scale-95 translate-y-4' : ''} ${
+      } ${isPassing ? 'opacity-30 scale-90 -translate-y-8 pointer-events-none' : ''} ${
         disabled ? 'cursor-not-allowed opacity-75' : ''
       } ${sizeClasses}`}
       style={{

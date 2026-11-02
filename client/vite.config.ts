@@ -13,9 +13,10 @@ export default defineConfig({
           'vendor-firebase': ['firebase/app', 'firebase/auth'],
           'vendor-socket': ['socket.io-client'],
           'vendor-ui': ['lucide-react', 'canvas-confetti'],
+          'vendor-three': ['three'],
         },
       },
     },
-    chunkSizeWarningLimit: 600,
+    chunkSizeWarningLimit: 800,
   },
 })

@@ -30,7 +30,7 @@ export const RoomSelectScreen: React.FC<RoomSelectScreenProps> = ({
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<'create' | 'join'>('create');
   const [selectedTheme, setSelectedTheme] = useState<CardTheme>('royals');
-  const [turnTimer, setTurnTimer] = useState<number>(20);
+  const [turnTimer, setTurnTimer] = useState<number>(60);
   const [playerCount, setPlayerCount] = useState<number>(4);
   const [deckMode, setDeckMode] = useState<'default' | 'custom'>('default');
   const [joinCode, setJoinCode] = useState<string>('');
@@ -513,22 +513,26 @@ export const RoomSelectScreen: React.FC<RoomSelectScreenProps> = ({
               <span>3. Turn Time Limit</span>
             </label>
             <div className="flex items-center gap-3">
-              {[15, 20, 30].map((seconds) => (
+              {[
+                { sec: 30, label: '30s (Fast)' },
+                { sec: 45, label: '45s' },
+                { sec: 60, label: '60s (1 Min • Ludo)' },
+              ].map(({ sec, label }) => (
                 <button
-                  key={seconds}
+                  key={sec}
                   type="button"
                   onClick={() => {
                     sound.playClick();
-                    setTurnTimer(seconds);
+                    setTurnTimer(sec);
                   }}
                   className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
-                    turnTimer === seconds
+                    turnTimer === sec
                       ? 'border-gold-500 bg-gold-500/10 text-gold-300 ring-2 ring-gold-400/30'
                       : 'border-table-border bg-table-card text-stone-400 hover:text-ivory-100'
                   }`}
                 >
                   <Clock className="w-3.5 h-3.5" />
-                  <span>{seconds} Seconds</span>
+                  <span>{label}</span>
                 </button>
               ))}
             </div>

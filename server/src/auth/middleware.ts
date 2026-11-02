@@ -5,6 +5,7 @@ import { prisma } from '../db.js';
 export interface AuthenticatedUser {
   id: string;
   firebaseUid?: string | null;
+  email?: string | null;
   username: string;
   displayName: string;
   avatarUrl: string;

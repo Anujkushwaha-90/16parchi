@@ -37,6 +37,9 @@ export interface PlayerSeat {
   winningCards: string[] | null;
   declaredAt: number | null;
   lastReceivedCardId?: string;
+  missedTurns?: number;
+  isEliminated?: boolean;
+  ranOut?: boolean;
 }
 
 export interface PublicPlayerSeat {
@@ -52,6 +55,9 @@ export interface PublicPlayerSeat {
   hasPassedInTurn: boolean;
   finishedRank: number | null;
   winningCards: string[] | null;
+  missedTurns?: number;
+  isEliminated?: boolean;
+  ranOut?: boolean;
 }
 
 export type MatchStatus = 'LOBBY' | 'DEALING' | 'ACTIVE' | 'FINISHED';

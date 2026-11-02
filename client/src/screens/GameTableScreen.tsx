@@ -4,6 +4,8 @@ import { useGameSocket } from '../context/SocketContext.js';
 import { useToast } from '../context/ToastContext.js';
 import { sound } from '../services/sound.js';
 import { Card } from '../components/Card.js';
+import { UserProfileModal } from '../components/Modals/UserProfileModal.js';
+import { isVipUser } from '../utils/vip.js';
 import { ParchiCard, PublicPlayerSeat } from '../types/index.js';
 import {
   Crown,
@@ -44,6 +46,7 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
   const [chatInput, setChatInput] = useState('');
   const [showChat, setShowChat] = useState(false);
   const [passingCardId, setPassingCardId] = useState<string | null>(null);
+  const [selectedProfilePlayer, setSelectedProfilePlayer] = useState<PublicPlayerSeat | null>(null);
 
   // If match status transitions to FINISHED
   useEffect(() => {
@@ -125,13 +128,21 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
   // Helper for rendering face-down opponent player pod
   const renderOpponentPod = (seat: PublicPlayerSeat, positionLabel: string) => {
     const isTurn = publicState.activeSeat === seat.seatIndex && seat.finishedRank === null;
+    const isOpponentVip = isVipUser(seat);
 
     return (
       <div
-        className={`relative flex flex-col items-center transition-all p-3 rounded-2xl ${
-          isTurn
+        onClick={() => {
+          sound.playClick();
+          setSelectedProfilePlayer(seat);
+        }}
+        title="Tap to view player profile & stats"
+        className={`relative flex flex-col items-center transition-all p-3 rounded-2xl cursor-pointer hover:scale-105 active:scale-95 group ${
+          isOpponentVip
+            ? 'border-2 border-rose-500/60 bg-rose-950/20 shadow-[0_0_20px_rgba(244,63,94,0.3)]'
+            : isTurn
             ? 'scale-105 ring-2 ring-gold-400 bg-gold-500/10 shadow-gold-glow'
-            : 'bg-table-dark/70 border border-table-border/60'
+            : 'bg-table-dark/70 border border-table-border/60 hover:border-gold-500/40'
         }`}
       >
         {/* Turn Countdown Ring if active */}
@@ -151,11 +162,22 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
 
         {/* Avatar */}
         <div className="relative mb-2">
-          <img
-            src={seat.avatarUrl}
-            alt={seat.displayName}
-            className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 border-gold-400/50 object-cover bg-emerald-950 shadow-md"
-          />
+          {isOpponentVip ? (
+            <div className="relative">
+              <img
+                src={seat.avatarUrl}
+                alt={seat.displayName}
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-rose-400 object-cover bg-stone-900 shadow-[0_0_16px_rgba(244,63,94,0.8)] animate-heartbeat-3d"
+              />
+              <span className="absolute -top-2 -right-1 text-xs animate-bounce pointer-events-none">💖</span>
+            </div>
+          ) : (
+            <img
+              src={seat.avatarUrl}
+              alt={seat.displayName}
+              className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 border-gold-400/50 object-cover bg-emerald-950 shadow-md"
+            />
+          )}
           {seat.isBot && (
             <div className="absolute -bottom-1 -right-1 p-0.5 rounded-md bg-cyan-900 border border-cyan-400 text-cyan-200">
               <Bot className="w-3 h-3" />
@@ -446,6 +468,24 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
           </form>
         </div>
       )}
+      {/* Opponent & Player Profile Modal */}
+      <UserProfileModal
+        isOpen={Boolean(selectedProfilePlayer)}
+        onClose={() => setSelectedProfilePlayer(null)}
+        target={
+          selectedProfilePlayer
+            ? {
+                id: selectedProfilePlayer.userId,
+                userId: selectedProfilePlayer.userId,
+                username: selectedProfilePlayer.username,
+                displayName: selectedProfilePlayer.displayName,
+                avatarUrl: selectedProfilePlayer.avatarUrl,
+                isBot: selectedProfilePlayer.isBot,
+                isVipUser: isVipUser(selectedProfilePlayer),
+              }
+            : null
+        }
+      />
     </div>
   );
 };

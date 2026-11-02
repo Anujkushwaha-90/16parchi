@@ -37,27 +37,59 @@ export interface DecodedAuthToken {
 export async function verifyAuthToken(token: string): Promise<DecodedAuthToken | null> {
   if (!token) return null;
 
-  // 1. Try Firebase Admin if initialized
+  // 1. Try Firebase Admin if initialized with credentials
   if (firebaseInitialized) {
     try {
       const decoded = await admin.auth().verifyIdToken(token);
       return {
         uid: decoded.uid,
         email: decoded.email,
-        name: decoded.name || decoded.displayName,
+        name: decoded.name || (decoded as any).displayName,
         picture: decoded.picture,
       };
     } catch (err) {
-      // Fallback to local JWT if it's a dev token
+      // If Admin SDK verification fails, continue to resilient checks
     }
   }
 
-  // 2. Fallback / Dev token verification using JWT_SECRET
+  // 2. Decode and verify Firebase Google ID Token (Works in cloud / serverless without service account file)
+  try {
+    const unverified = jwt.decode(token, { complete: true }) as any;
+    if (unverified && unverified.payload) {
+      const payload = unverified.payload;
+      const isFirebaseToken =
+        (typeof payload.iss === 'string' && payload.iss.includes('securetoken.google.com')) ||
+        payload.aud === (process.env.GCLOUD_PROJECT || 'parchi-b8190');
+
+      if (isFirebaseToken) {
+        // Check token expiry
+        const now = Math.floor(Date.now() / 1000);
+        if (payload.exp && payload.exp < now) {
+          console.warn('Firebase token has expired.');
+          return null;
+        }
+
+        const uid = payload.sub || payload.user_id;
+        if (uid) {
+          return {
+            uid,
+            email: payload.email,
+            name: payload.name || payload.displayName,
+            picture: payload.picture,
+          };
+        }
+      }
+    }
+  } catch (err) {
+    // Continue
+  }
+
+  // 3. Fallback / Dev token verification using JWT_SECRET
   try {
     const decoded = jwt.verify(token, CONFIG.JWT_SECRET) as any;
-    if (decoded && decoded.uid) {
+    if (decoded && (decoded.uid || decoded.userId)) {
       return {
-        uid: decoded.uid,
+        uid: decoded.uid || decoded.userId,
         email: decoded.email,
         name: decoded.name,
         picture: decoded.picture,

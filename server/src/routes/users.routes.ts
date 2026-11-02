@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { prisma } from '../db.js';
 import { requireAuth, AuthRequest } from '../auth/middleware.js';
+import { isUserOnline } from '../sockets/presence.js';
 
 const router = Router();
 
@@ -43,7 +44,8 @@ router.get('/search', requireAuth, async (req: AuthRequest, res: Response): Prom
       take: 10,
     });
 
-    res.json({ users });
+    const mappedUsers = users.map(u => ({ ...u, isOnline: isUserOnline(u.id) }));
+    res.json({ users: mappedUsers });
   } catch (err) {
     console.error('Search error:', err);
     res.status(500).json({ error: 'Failed to search users' });
@@ -51,12 +53,72 @@ router.get('/search', requireAuth, async (req: AuthRequest, res: Response): Prom
 });
 
 /**
- * Update player profile
+ * View player public/rich profile by ID, friendCode, or username
+ */
+router.get('/profile/view/:identifier', async (req, res: Response): Promise<void> => {
+  try {
+    const { identifier } = req.params;
+    if (!identifier) {
+      res.status(400).json({ error: 'Identifier required' });
+      return;
+    }
+
+    const trimmed = identifier.trim();
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: trimmed },
+          { friendCode: trimmed.toUpperCase() },
+          { username: trimmed.toLowerCase() },
+        ],
+      },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        friendCode: true,
+        isOnline: true,
+        gamesPlayed: true,
+        gamesWon: true,
+        secondPlaceCount: true,
+        thirdPlaceCount: true,
+        fourthPlaceCount: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: 'Player profile not found' });
+      return;
+    }
+
+    const winRate =
+      user.gamesPlayed > 0
+        ? Math.round((user.gamesWon / user.gamesPlayed) * 100)
+        : 0;
+
+    res.json({
+      profile: {
+        ...user,
+        isOnline: isUserOnline(user.id),
+        winRate,
+      },
+    });
+  } catch (err) {
+    console.error('Profile view error:', err);
+    res.status(500).json({ error: 'Failed to fetch player profile' });
+  }
+});
+
+/**
+ * Update player profile (with permanent database avatar history log)
  */
 router.patch('/profile', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { displayName, avatarUrl } = req.body;
+    const { displayName, avatarUrl, avatarSource, avatarFileSize } = req.body;
     const userId = req.user!.id;
+    const currentUser = req.user!;
 
     // Check displayName uniqueness if being updated
     if (displayName) {
@@ -76,9 +138,56 @@ router.patch('/profile', requireAuth, async (req: AuthRequest, res: Response): P
       },
     });
 
+    // Record every profile photo permanently in the database with user ID and name
+    if (avatarUrl) {
+      try {
+        await prisma.avatarHistory.create({
+          data: {
+            userId: updated.id,
+            userEmail: updated.email || currentUser.email || null,
+            username: updated.username,
+            displayName: updated.displayName,
+            avatarUrl: avatarUrl,
+            source: avatarSource || 'CUSTOM_UPLOAD',
+            fileSize: typeof avatarFileSize === 'number' ? avatarFileSize : null,
+          },
+        });
+      } catch (logErr) {
+        console.error('Failed to record avatar history:', logErr);
+      }
+    }
+
     res.json({ user: updated });
   } catch (err) {
+    console.error('Update profile error:', err);
     res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+/**
+ * Get permanent avatar history for current user
+ */
+router.get('/profile/avatar-history', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+    const history = await prisma.avatarHistory.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+      select: {
+        id: true,
+        avatarUrl: true,
+        source: true,
+        displayName: true,
+        username: true,
+        fileSize: true,
+        createdAt: true,
+      },
+    });
+    res.json({ history });
+  } catch (err) {
+    console.error('Avatar history error:', err);
+    res.status(500).json({ error: 'Failed to fetch avatar history' });
   }
 });
 

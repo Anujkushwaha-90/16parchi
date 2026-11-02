@@ -13,9 +13,11 @@ router.get('/history', requireAuth, async (req: AuthRequest, res: Response): Pro
 
     const matches = await prisma.match.findMany({
       where: {
-        players: {
-          some: { userId },
-        },
+        OR: [
+          { players: { some: { userId } } },
+          { hostId: userId },
+          { rankingsJson: { contains: userId } },
+        ],
       },
       include: {
         players: true,

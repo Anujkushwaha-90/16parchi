@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext.js';
 import { useToast } from '../context/ToastContext.js';
 import { sound } from '../services/sound.js';
+import { UserProfileModal } from './Modals/UserProfileModal.js';
+import { isVipUser } from '../utils/vip.js';
 import { Volume2, VolumeX, Users, Swords, History, Settings, LogOut, Copy, Check, Menu, X, Crown } from 'lucide-react';
 
 interface NavbarProps {
@@ -20,6 +22,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isMuted, setIsMuted] = useState(sound.getMuted());
   const [copiedCode, setCopiedCode] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const isVip = isVipUser(user);
 
   const toggleSound = () => {
     const next = !isMuted;
@@ -47,7 +51,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   ];
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-table-surface/90 backdrop-blur-md border-b border-table-border shadow-md">
+    <>
+      <header className="sticky top-0 z-40 w-full bg-table-surface/90 backdrop-blur-md border-b border-table-border shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Brand Logo */}
         <div
@@ -128,14 +133,38 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               {/* Profile Avatar */}
               <div className="flex items-center gap-2 pl-2 border-l border-table-border">
-                <img
-                  src={user.avatarUrl}
-                  alt={user.displayName}
-                  className="w-8 h-8 rounded-full border border-gold-400/50 object-cover bg-emerald-950"
-                />
-                <span className="hidden lg:inline text-xs font-bold text-ivory-100 max-w-[100px] truncate">
-                  {user.displayName}
-                </span>
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    setShowProfileModal(true);
+                  }}
+                  title="View Your Royal Profile"
+                  className="flex items-center gap-2 p-1 rounded-xl hover:bg-white/5 transition-all group"
+                >
+                  <div className="relative">
+                    <img
+                      src={user.avatarUrl}
+                      alt={user.displayName}
+                      className={`w-8 h-8 rounded-full border object-cover bg-emerald-950 transition-transform group-hover:scale-110 ${
+                        isVip
+                          ? 'border-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.9)] ring-2 ring-pink-500/60 animate-heartbeat-3d'
+                          : 'border-gold-400/50 shadow-md'
+                      }`}
+                    />
+                    {isVip && (
+                      <span className="absolute -top-1.5 -right-1.5 text-[10px] animate-bounce pointer-events-none">💖</span>
+                    )}
+                  </div>
+                  <span
+                    className={`hidden lg:inline text-xs font-bold max-w-[100px] truncate ${
+                      isVip
+                        ? 'bg-gradient-to-r from-rose-300 via-pink-200 to-amber-200 bg-clip-text text-transparent font-black'
+                        : 'text-ivory-100 group-hover:text-gold-300'
+                    }`}
+                  >
+                    {user.displayName}
+                  </span>
+                </button>
                 <button
                   onClick={() => {
                     sound.playClick();
@@ -206,6 +235,15 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
       )}
-    </header>
+      </header>
+      {user && (
+        <UserProfileModal
+          isOpen={showProfileModal}
+          onClose={() => setShowProfileModal(false)}
+          target={user}
+          onNavigate={onNavigate}
+        />
+      )}
+    </>
   );
 };

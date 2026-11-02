@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../db.js';
 import { verifyAuthToken, generateSessionToken } from '../auth/firebase.js';
 import { requireAuth, AuthRequest } from '../auth/middleware.js';
+import { parseDeviceInfo } from '../utils/deviceParser.js';
 import crypto from 'crypto';
 
 const router = Router();
@@ -28,8 +29,14 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    let user = await prisma.user.findUnique({
-      where: { firebaseUid: decoded.uid },
+    // Match by firebaseUid OR email (handles linking existing accounts seamlessly)
+    let user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { firebaseUid: decoded.uid },
+          ...(decoded.email ? [{ email: decoded.email }] : []),
+        ],
+      },
     });
 
     if (!user) {
@@ -62,26 +69,74 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
         decoded.picture ||
         `https://api.dicebear.com/7.x/adventurer/svg?seed=${finalUsername}`;
 
-      user = await prisma.user.create({
-        data: {
-          firebaseUid: decoded.uid,
-          email: decoded.email,
-          username: finalUsername,
-          displayName: finalDisplayName,
-          avatarUrl,
-          friendCode,
-          isOnline: true,
-        },
-      });
+      try {
+        user = await prisma.user.create({
+          data: {
+            firebaseUid: decoded.uid,
+            email: decoded.email,
+            username: finalUsername,
+            displayName: finalDisplayName,
+            avatarUrl,
+            friendCode,
+            isOnline: true,
+          },
+        });
+      } catch (createErr: any) {
+        // Concurrency / duplicate protection: if user was created concurrently in another request, fetch cleanly!
+        user = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { firebaseUid: decoded.uid },
+              ...(decoded.email ? [{ email: decoded.email }] : []),
+            ],
+          },
+        });
+        if (!user) {
+          throw createErr;
+        }
+      }
     } else {
-      // Update online status
+      // Update online status and ensure firebaseUid & avatarUrl are synced
       user = await prisma.user.update({
         where: { id: user.id },
-        data: { isOnline: true, lastSeenAt: new Date() },
+        data: {
+          firebaseUid: decoded.uid,
+          isOnline: true,
+          lastSeenAt: new Date(),
+          ...(decoded.picture ? { avatarUrl: decoded.picture } : {}),
+        },
       });
     }
 
+    if (!user) {
+      res.status(500).json({ error: 'Failed to retrieve or create user profile.' });
+      return;
+    }
+
     const sessionToken = generateSessionToken(user);
+
+    // Record login analytics & device information into Neon Database
+    try {
+      const devInfo = parseDeviceInfo(req);
+      await prisma.userLoginLog.create({
+        data: {
+          userId: user.id,
+          email: user.email || null,
+          deviceType: devInfo.deviceType,
+          browser: devInfo.browser,
+          os: devInfo.os,
+          ipAddress: devInfo.ipAddress,
+          city: devInfo.city,
+          country: devInfo.country,
+          userAgent: devInfo.userAgent,
+          loggedInAt: new Date(),
+          lastActiveAt: new Date(),
+          durationSeconds: 0,
+        },
+      });
+    } catch (logErr) {
+      console.warn('Login audit notice:', logErr);
+    }
 
     res.json({
       success: true,
@@ -144,6 +199,29 @@ router.post('/dev-login', async (req: Request, res: Response): Promise<void> => 
 
     const sessionToken = generateSessionToken(user);
 
+    // Record login analytics & device information into Neon Database
+    try {
+      const devInfo = parseDeviceInfo(req);
+      await prisma.userLoginLog.create({
+        data: {
+          userId: user.id,
+          email: user.email || null,
+          deviceType: devInfo.deviceType,
+          browser: devInfo.browser,
+          os: devInfo.os,
+          ipAddress: devInfo.ipAddress,
+          city: devInfo.city,
+          country: devInfo.country,
+          userAgent: devInfo.userAgent,
+          loggedInAt: new Date(),
+          lastActiveAt: new Date(),
+          durationSeconds: 0,
+        },
+      });
+    } catch (logErr) {
+      console.warn('Login audit notice:', logErr);
+    }
+
     res.json({
       success: true,
       token: sessionToken,
@@ -160,9 +238,28 @@ router.post('/dev-login', async (req: Request, res: Response): Promise<void> => 
  */
 router.get('/me', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user!.id },
+    const userId = req.user!.id;
+    const now = new Date();
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { lastSeenAt: now, isOnline: true },
     });
+
+    // Update session duration in the most recent login log
+    try {
+      const latestLog = await prisma.userLoginLog.findFirst({
+        where: { userId },
+        orderBy: { loggedInAt: 'desc' },
+      });
+      if (latestLog) {
+        const durationSeconds = Math.max(0, Math.floor((now.getTime() - latestLog.loggedInAt.getTime()) / 1000));
+        await prisma.userLoginLog.update({
+          where: { id: latestLog.id },
+          data: { lastActiveAt: now, durationSeconds },
+        });
+      }
+    } catch {}
+
     res.json({ user });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch current user' });

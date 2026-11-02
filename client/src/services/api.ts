@@ -76,11 +76,24 @@ class ApiService {
     return this.request(`/users/search?q=${encodeURIComponent(query)}`);
   }
 
-  public updateProfile(displayName?: string, avatarUrl?: string) {
+  public updateProfile(
+    displayName?: string,
+    avatarUrl?: string,
+    avatarSource?: string,
+    avatarFileSize?: number
+  ) {
     return this.request('/users/profile', {
       method: 'PATCH',
-      body: JSON.stringify({ displayName, avatarUrl }),
+      body: JSON.stringify({ displayName, avatarUrl, avatarSource, avatarFileSize }),
     });
+  }
+
+  public getAvatarHistory() {
+    return this.request('/users/profile/avatar-history');
+  }
+
+  public getPlayerProfile(identifier: string) {
+    return this.request('/users/profile/view/' + encodeURIComponent(identifier));
   }
 
   public getUserStats(userId: string) {
@@ -173,6 +186,13 @@ class ApiService {
     return this.request(`/rooms/${code}/invite`, {
       method: 'POST',
       body: JSON.stringify({ friendUserId }),
+    });
+  }
+
+  public respondToRoomInvite(inviteId: string, accept: boolean) {
+    return this.request('/rooms/invites/' + encodeURIComponent(inviteId) + '/respond', {
+      method: 'POST',
+      body: JSON.stringify({ accept }),
     });
   }
 

@@ -594,5 +594,54 @@ describe('16 PARCHI Master Test Suite', () => {
       expect(game.rankings[4].rank).toBe(5);
       expect(game.rankings[4].displayName).toBe('Eva');
     });
+
+    it('advances turn immediately when active player declares win and never returns turn to winner', () => {
+      const game = new ParchiGame('match_winner_turn', 'room_wt', 'WIN01', dummyPlayers, 'royals', 60, 4);
+      game.startMatch();
+      expect(game.activeSeat).toBe(0);
+
+      // Seat 0 has 4 identical cards
+      game.seats[0].hand = [
+        { id: 'r1', name: 'RAJA', theme: 'royals', color: 'gold' },
+        { id: 'r2', name: 'RAJA', theme: 'royals', color: 'gold' },
+        { id: 'r3', name: 'RAJA', theme: 'royals', color: 'gold' },
+        { id: 'r4', name: 'RAJA', theme: 'royals', color: 'gold' },
+      ];
+
+      // Seat 0 declares win
+      const declareRes = game.declareWin(0);
+      expect(declareRes.success).toBe(true);
+      expect(game.seats[0].finishedRank).toBe(1);
+
+      // Turn MUST immediately advance to Seat 1 (not stay on Seat 0)
+      expect(game.activeSeat).toBe(1);
+
+      // Seat 1 passes to Seat 2 (ensure Seat 1 does NOT have 4 of a kind so they remain active)
+      game.seats[1].hand = [
+        { id: 'c1', name: 'CHOR', theme: 'royals', color: 'stone' },
+        { id: 'c2', name: 'CHOR', theme: 'royals', color: 'stone' },
+        { id: 'c3', name: 'CHOR', theme: 'royals', color: 'stone' },
+        { id: 'q1', name: 'RANI', theme: 'royals', color: 'red' },
+        { id: 'x1', name: 'SIPAHI', theme: 'royals', color: 'cyan' },
+      ];
+      game.passCard('user_2', 'x1');
+      expect(game.activeSeat).toBe(2);
+
+      // Seat 2 passes to Seat 3
+      game.seats[2].hand.push({ id: 'x2', name: 'SIPAHI', theme: 'royals', color: 'cyan' });
+      game.passCard('user_3', 'x2');
+      expect(game.activeSeat).toBe(3);
+
+      // Seat 3 passes: Clockwise neighbor is Seat 0, BUT Seat 0 is finished!
+      // Card MUST be passed to Seat 1, and turn MUST advance to Seat 1!
+      game.seats[3].hand.push({ id: 'x3', name: 'SIPAHI', theme: 'royals', color: 'cyan' });
+      const passResult = game.passCard('user_4', 'x3');
+      expect(passResult.success).toBe(true);
+      expect(game.lastTransfer?.toSeat).toBe(1); // Skipped 0!
+      expect(game.activeSeat).toBe(1); // Skipped 0!
+
+      // Seat 0 NEVER receives a turn
+      expect(game.seats[0].finishedRank).toBe(1);
+    });
   });
 });

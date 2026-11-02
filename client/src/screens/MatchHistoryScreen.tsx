@@ -5,7 +5,7 @@ import { api } from '../services/api.js';
 import { History, Trophy, Clock, Swords, Crown } from 'lucide-react';
 
 export const MatchHistoryScreen: React.FC = () => {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { showToast } = useToast();
   const [matches, setMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -14,6 +14,7 @@ export const MatchHistoryScreen: React.FC = () => {
     const fetchHistory = async () => {
       setLoading(true);
       try {
+        refreshUser().catch(() => {});
         const res = await api.getMatchHistory();
         setMatches(res.matches || []);
       } catch (e) {
@@ -23,7 +24,7 @@ export const MatchHistoryScreen: React.FC = () => {
       }
     };
     fetchHistory();
-  }, []);
+  }, [refreshUser]);
 
   if (!user) return null;
 

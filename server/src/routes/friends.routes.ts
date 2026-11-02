@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { prisma } from '../db.js';
 import { requireAuth, AuthRequest } from '../auth/middleware.js';
+import { isUserOnline } from '../sockets/presence.js';
 
 const router = Router();
 
@@ -51,6 +52,7 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<vo
         friendshipId: f.id,
         createdAt: f.createdAt,
         ...friendData,
+        isOnline: isUserOnline(friendData.id),
       };
     });
 

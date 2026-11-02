@@ -29,11 +29,23 @@ interface SocketContextType {
   sendChatMessage: (message: string) => void;
   requestRematch: () => void;
   resetGameState: () => void;
+  setGameStates: (publicState: PublicGameState | null, privateState: PrivatePlayerState | null) => void;
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:4000';
+const getSocketUrl = (): string => {
+  const envUrl = import.meta.env.VITE_SOCKET_URL;
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    return envUrl;
+  }
+  if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && window.location.hostname !== '127.0.0.1') {
+    return 'https://16parchi-api.vercel.app';
+  }
+  return envUrl || 'http://localhost:4000';
+};
+
+const SOCKET_URL = getSocketUrl();
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
@@ -61,7 +73,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const s = io(SOCKET_URL, {
       auth: { token },
       transports: ['websocket', 'polling'],
-      reconnectionAttempts: 10,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 10000,
     });
 
     s.on('connect', () => {
@@ -199,6 +215,39 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setPrivateState(null);
   }, []);
 
+  const setGameStates = useCallback(
+    (pub: PublicGameState | null, priv: PrivatePlayerState | null) => {
+      if (pub) {
+        setPublicState((prev) => {
+          if (!prev) return pub;
+          // Never roll back to an older turn number from out-of-order poll responses
+          if (
+            pub.matchId === prev.matchId &&
+            pub.status === prev.status &&
+            pub.turnNumber < prev.turnNumber
+          ) {
+            return prev;
+          }
+          return pub;
+        });
+      }
+      if (priv) {
+        setPrivateState((prev) => {
+          if (!prev) return priv;
+          if (
+            priv.matchId === prev.matchId &&
+            priv.status === prev.status &&
+            priv.turnNumber < prev.turnNumber
+          ) {
+            return prev;
+          }
+          return priv;
+        });
+      }
+    },
+    []
+  );
+
   return (
     <SocketContext.Provider
       value={{
@@ -215,6 +264,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         sendChatMessage,
         requestRematch,
         resetGameState,
+        setGameStates,
       }}
     >
       {children}

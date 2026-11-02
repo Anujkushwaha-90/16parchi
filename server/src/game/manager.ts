@@ -7,6 +7,7 @@ export class GameManager {
   private static instance: GameManager;
   private activeGames: Map<string, ParchiGame> = new Map(); // roomId -> ParchiGame
   private io: Server | null = null;
+  private persistedMatches: Set<string> = new Set();
 
   private constructor() {}
 
@@ -21,6 +22,12 @@ export class GameManager {
     this.io = io;
   }
 
+  public broadcastToRoom(roomId: string, event: string, data?: any): void {
+    if (this.io) {
+      this.io.to(`room:${roomId}`).emit(event, data);
+    }
+  }
+
   public getGame(roomId: string): ParchiGame | undefined {
     return this.activeGames.get(roomId);
   }
@@ -32,13 +39,113 @@ export class GameManager {
     return undefined;
   }
 
+  public async getGameAsync(roomId: string): Promise<ParchiGame | undefined> {
+    const existing = this.activeGames.get(roomId);
+
+    try {
+      const room = await prisma.gameRoom.findUnique({
+        where: { id: roomId },
+      });
+      if (room && room.gameStateJson) {
+        const dbState = JSON.parse(room.gameStateJson);
+        // Resync if in-memory instance is missing OR if database has newer turnNumber/finished status/rankings
+        const needsResync =
+          !existing ||
+          dbState.turnNumber > existing.turnNumber ||
+          (dbState.status === 'FINISHED' && existing.status !== 'FINISHED') ||
+          ((dbState.rankings?.length || 0) > (existing.rankings?.length || 0));
+
+        if (needsResync) {
+          if (existing) existing.destroy();
+          const game = ParchiGame.fromJSON(dbState);
+          game.setCallbacks(
+            () => {
+              this.broadcastGameState(room.id);
+              this.saveGame(game).catch(console.error);
+            },
+            (botSeatIndex) => {
+              game.executeBotTurn(botSeatIndex);
+              this.saveGame(game).catch(console.error);
+            }
+          );
+          this.activeGames.set(room.id, game);
+          return game;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load game from DB:', e);
+    }
+
+    return existing;
+  }
+
+  public async getGameByCodeAsync(code: string): Promise<ParchiGame | undefined> {
+    const cleanCode = code.toUpperCase();
+    const existing = this.getGameByCode(cleanCode);
+
+    try {
+      const room = await prisma.gameRoom.findUnique({
+        where: { code: cleanCode },
+      });
+      if (room && room.gameStateJson) {
+        const dbState = JSON.parse(room.gameStateJson);
+        // Resync if in-memory instance is missing OR if database has newer turnNumber/finished status/rankings
+        const needsResync =
+          !existing ||
+          dbState.turnNumber > existing.turnNumber ||
+          (dbState.status === 'FINISHED' && existing.status !== 'FINISHED') ||
+          ((dbState.rankings?.length || 0) > (existing.rankings?.length || 0));
+
+        if (needsResync) {
+          if (existing) existing.destroy();
+          const game = ParchiGame.fromJSON(dbState);
+          game.setCallbacks(
+            () => {
+              this.broadcastGameState(room.id);
+              this.saveGame(game).catch(console.error);
+            },
+            (botSeatIndex) => {
+              game.executeBotTurn(botSeatIndex);
+              this.saveGame(game).catch(console.error);
+            }
+          );
+          this.activeGames.set(room.id, game);
+          return game;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load game by code from DB:', e);
+    }
+
+    return existing;
+  }
+
+  public async saveGame(game: ParchiGame): Promise<void> {
+    try {
+      await prisma.gameRoom.update({
+        where: { id: game.roomId },
+        data: {
+          status: game.status === 'FINISHED' ? 'FINISHED' : 'IN_GAME',
+          gameStateJson: JSON.stringify(game.toJSON()),
+        },
+      });
+
+      // If match finished, persist match results & player career statistics immediately
+      if (game.status === 'FINISHED') {
+        await this.persistMatchResults(game);
+      }
+    } catch (e) {
+      console.error('Failed to save game state to DB:', e);
+    }
+  }
+
   /**
    * Start a new match for a room
    */
   public async createAndStartGame(
     roomId: string,
     theme: CardTheme = 'royals',
-    turnTimeSeconds: number = 20
+    turnTimeSeconds: number = 60
   ): Promise<ParchiGame> {
     // End existing game if any
     const existing = this.activeGames.get(roomId);
@@ -114,12 +221,21 @@ export class GameManager {
       }
     }
 
-    // Create match record in DB
+    // Create match record in DB with associated MatchPlayer rows
     const matchRecord = await prisma.match.create({
       data: {
         roomId: room.id,
         hostId: room.hostId,
         totalRounds: 0,
+        players: {
+          create: players.map((p) => ({
+            userId: p.isBot ? null : p.userId,
+            isBot: p.isBot,
+            playerName: p.displayName,
+            avatarUrl: p.avatarUrl,
+            seatIndex: p.seatIndex,
+          })),
+        },
       },
     });
 
@@ -141,12 +257,21 @@ export class GameManager {
     );
 
     game.setCallbacks(
-      () => this.broadcastGameState(room.id),
-      (botSeatIndex) => game.executeBotTurn(botSeatIndex)
+      () => {
+        this.broadcastGameState(room.id);
+        this.saveGame(game).catch(console.error);
+      },
+      (botSeatIndex) => {
+        game.executeBotTurn(botSeatIndex);
+        this.saveGame(game).catch(console.error);
+      }
     );
 
     this.activeGames.set(room.id, game);
     game.startMatch();
+
+    // Persist active game state to Neon Database immediately
+    await this.saveGame(game);
 
     return game;
   }
@@ -156,17 +281,22 @@ export class GameManager {
    */
   public broadcastGameState(roomId: string): void {
     const game = this.activeGames.get(roomId);
-    if (!game || !this.io) return;
+    if (!game) return;
 
-    const publicState = game.getPublicState();
-    this.io.to(`room:${roomId}`).emit('gameState:public', publicState);
+    // Always sync state changes to Neon DB
+    this.saveGame(game);
 
-    // Send private states to each player
-    for (const seat of game.seats) {
-      if (!seat.isBot && seat.userId) {
-        const privateState = game.getPrivateStateForPlayer(seat.userId);
-        if (privateState) {
-          this.io.to(`user:${seat.userId}`).emit('gameState:private', privateState);
+    if (this.io) {
+      const publicState = game.getPublicState();
+      this.io.to(`room:${roomId}`).emit('gameState:public', publicState);
+
+      // Send private states to each player
+      for (const seat of game.seats) {
+        if (!seat.isBot && seat.userId) {
+          const privateState = game.getPrivateStateForPlayer(seat.userId);
+          if (privateState) {
+            this.io.to(`user:${seat.userId}`).emit('gameState:private', privateState);
+          }
         }
       }
     }
@@ -183,6 +313,9 @@ export class GameManager {
    * Persist match results to database
    */
   private async persistMatchResults(game: ParchiGame): Promise<void> {
+    if (this.persistedMatches.has(game.matchId)) return;
+    this.persistedMatches.add(game.matchId);
+
     try {
       const durationSeconds = game.endedAt
         ? Math.floor((game.endedAt - game.createdAt) / 1000)
@@ -199,13 +332,27 @@ export class GameManager {
         },
       });
 
+      // Update MatchPlayer rows with final placement ranks and winning sets
+      for (const rankItem of game.rankings) {
+        await prisma.matchPlayer.updateMany({
+          where: {
+            matchId: game.matchId,
+            seatIndex: rankItem.seatIndex,
+          },
+          data: {
+            finalRank: rankItem.rank,
+            winningCards: rankItem.cardName,
+          },
+        });
+      }
+
       // Update room status
       await prisma.gameRoom.update({
         where: { id: game.roomId },
         data: { status: 'FINISHED' },
       });
 
-      // Update player statistics
+      // Update player statistics in Neon PostgreSQL
       for (const rankItem of game.rankings) {
         if (!rankItem.isBot && rankItem.userId) {
           const updateData: any = {

@@ -22,7 +22,7 @@ function generateRoomCode(): string {
 router.post('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!.id;
-    const { cardTheme = 'royals', turnTimeSeconds = 20, maxPlayers = 4, customDeck } = req.body;
+    const { cardTheme = 'royals', turnTimeSeconds = 60, maxPlayers = 4, customDeck } = req.body;
 
     const numPlayers = parseInt(maxPlayers as any, 10);
     if (isNaN(numPlayers) || numPlayers < 4 || numPlayers > 10) {
@@ -110,6 +110,18 @@ router.get('/:code', requireAuth, async (req: AuthRequest, res: Response): Promi
       return;
     }
 
+    // Auto-expire stale matches (no activity for 30+ minutes)
+    if (
+      room.status === 'IN_GAME' &&
+      Date.now() - new Date(room.updatedAt).getTime() > 30 * 60 * 1000
+    ) {
+      await prisma.gameRoom.update({
+        where: { id: room.id },
+        data: { status: 'FINISHED' },
+      });
+      room.status = 'FINISHED';
+    }
+
     res.json({ room });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch room' });
@@ -133,6 +145,18 @@ router.patch('/:code/settings', requireAuth, async (req: AuthRequest, res: Respo
     if (!room) {
       res.status(404).json({ error: 'Room not found.' });
       return;
+    }
+
+    // Auto-expire stale matches (no activity for 30+ minutes)
+    if (
+      room.status === 'IN_GAME' &&
+      Date.now() - new Date(room.updatedAt).getTime() > 30 * 60 * 1000
+    ) {
+      await prisma.gameRoom.update({
+        where: { id: room.id },
+        data: { status: 'FINISHED' },
+      });
+      room.status = 'FINISHED';
     }
 
     if (room.hostId !== userId) {
@@ -217,15 +241,25 @@ router.post('/:code/join', requireAuth, async (req: AuthRequest, res: Response):
       return;
     }
 
-    if (room.status !== 'LOBBY') {
-      res.status(400).json({ error: 'Match has already started in this room.' });
+    // Check if user is already in room (Allow seamless re-connect even if match has started!)
+    const existingMember = room.members.find((m) => m.userId === userId);
+    if (existingMember) {
+      const fullRoom = await prisma.gameRoom.findUnique({
+        where: { id: room.id },
+        include: {
+          host: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+          members: {
+            include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
+            orderBy: { seatIndex: 'asc' },
+          },
+        },
+      });
+      res.json({ success: true, room: fullRoom, reconnected: true });
       return;
     }
 
-    // Check if user is already in room
-    const existingMember = room.members.find((m) => m.userId === userId);
-    if (existingMember) {
-      res.json({ success: true, room });
+    if (room.status !== 'LOBBY') {
+      res.status(400).json({ error: 'Match has already started in this room.' });
       return;
     }
 
@@ -273,6 +307,9 @@ router.post('/:code/join', requireAuth, async (req: AuthRequest, res: Response):
       },
     });
 
+    GameManager.getInstance().broadcastToRoom(room.id, 'lobby:memberJoined', updatedRoom);
+    GameManager.getInstance().broadcastToRoom(room.id, 'lobby:update', updatedRoom);
+
     res.json({ success: true, room: updatedRoom });
   } catch (err) {
     console.error('Error joining room:', err);
@@ -308,6 +345,8 @@ router.post('/:code/ready', requireAuth, async (req: AuthRequest, res: Response)
       where: { id: member.id },
       data: { isReady: !member.isReady },
     });
+
+    GameManager.getInstance().broadcastToRoom(room.id, 'lobby:update');
 
     res.json({ success: true, isReady: updated.isReady });
   } catch (err) {
@@ -439,6 +478,15 @@ router.post('/:code/leave', requireAuth, async (req: AuthRequest, res: Response)
       await prisma.roomMember.delete({ where: { id: member.id } });
     }
 
+    // If an active game is running, mark player as Ran Out and skip turn immediately!
+    const gameManager = GameManager.getInstance();
+    const game = await gameManager.getGameByCodeAsync(code);
+    if (game && game.status === 'ACTIVE') {
+      game.playerRanOut(userId);
+      await gameManager.saveGame(game);
+      gameManager.broadcastGameState(game.roomId);
+    }
+
     // If host left, either assign next human host or delete room if empty
     const remainingMembers = await prisma.roomMember.findMany({
       where: { roomId: room.id, isBot: false },
@@ -534,6 +582,122 @@ router.post('/:code/start', requireAuth, async (req: AuthRequest, res: Response)
 });
 
 /**
+ * Authoritative game state endpoint (works on serverless & WebSocket fallbacks)
+ */
+router.get('/:code/game', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { code } = req.params;
+    const userId = req.user!.id;
+
+    const gameManager = GameManager.getInstance();
+    const game = await gameManager.getGameByCodeAsync(code);
+
+    if (!game) {
+      res.status(404).json({ error: 'No active game found for this room.' });
+      return;
+    }
+
+    const publicState = game.getPublicState();
+    const privateState = game.getPrivateStateForPlayer(userId);
+
+    res.json({
+      success: true,
+      publicState,
+      privateState,
+    });
+  } catch (err: any) {
+    console.error('Error fetching game state:', err);
+    res.status(500).json({ error: err.message || 'Failed to fetch game state' });
+  }
+});
+
+/**
+ * Pass card via HTTP REST (instant sync across any serverless node)
+ */
+router.post('/:code/pass', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { code } = req.params;
+    const { cardId } = req.body;
+    const userId = req.user!.id;
+
+    if (!cardId) {
+      res.status(400).json({ error: 'cardId is required' });
+      return;
+    }
+
+    const gameManager = GameManager.getInstance();
+    const game = await gameManager.getGameByCodeAsync(code);
+
+    if (!game) {
+      res.status(404).json({ error: 'No active game found.' });
+      return;
+    }
+
+    const result = game.passCard(userId, cardId);
+    if (!result.success) {
+      res.status(400).json({ error: result.error || 'Failed to pass card' });
+      return;
+    }
+
+    // Save and broadcast
+    await gameManager.saveGame(game);
+    gameManager.broadcastGameState(game.roomId);
+
+    res.json({
+      success: true,
+      publicState: game.getPublicState(),
+      privateState: game.getPrivateStateForPlayer(userId),
+    });
+  } catch (err: any) {
+    console.error('Error passing card:', err);
+    res.status(500).json({ error: err.message || 'Failed to pass card' });
+  }
+});
+
+/**
+ * Declare win via HTTP REST
+ */
+router.post('/:code/declare', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { code } = req.params;
+    const userId = req.user!.id;
+
+    const gameManager = GameManager.getInstance();
+    const game = await gameManager.getGameByCodeAsync(code);
+
+    if (!game) {
+      res.status(404).json({ error: 'No active game found.' });
+      return;
+    }
+
+    const seatIndex = game.seats.findIndex((s) => s.userId === userId);
+    if (seatIndex === -1) {
+      res.status(400).json({ error: 'Player not seated in this game' });
+      return;
+    }
+
+    const result = game.declareWin(seatIndex);
+    if (!result.success) {
+      res.status(400).json({ error: result.error || 'Invalid declaration' });
+      return;
+    }
+
+    // Save and broadcast
+    await gameManager.saveGame(game);
+    gameManager.broadcastGameState(game.roomId);
+
+    res.json({
+      success: true,
+      publicState: game.getPublicState(),
+      privateState: game.getPrivateStateForPlayer(userId),
+    });
+  } catch (err: any) {
+    console.error('Error declaring win:', err);
+    res.status(500).json({ error: err.message || 'Failed to declare win' });
+  }
+});
+
+/**
  * Send room invite to friend
  */
 router.post('/:code/invite', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
@@ -602,6 +766,43 @@ router.get('/invites/pending', requireAuth, async (req: AuthRequest, res: Respon
     res.json({ invites });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch invites' });
+  }
+});
+
+/**
+ * Respond to a room invitation (Accept or Decline)
+ */
+router.post('/invites/:inviteId/respond', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { inviteId } = req.params;
+    const { accept } = req.body;
+    const userId = req.user!.id;
+
+    const invite = await prisma.roomInvite.findUnique({
+      where: { id: inviteId },
+      include: { room: true },
+    });
+
+    if (!invite || invite.inviteeId !== userId) {
+      res.status(404).json({ error: 'Invitation not found' });
+      return;
+    }
+
+    if (accept) {
+      await prisma.roomInvite.update({
+        where: { id: inviteId },
+        data: { status: 'ACCEPTED' },
+      });
+      res.json({ success: true, roomCode: invite.room.code });
+    } else {
+      await prisma.roomInvite.update({
+        where: { id: inviteId },
+        data: { status: 'DECLINED' },
+      });
+      res.json({ success: true });
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to respond to invite' });
   }
 });
 

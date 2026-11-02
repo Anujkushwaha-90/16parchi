@@ -1,3 +1,4 @@
+import { markUserConnected, markUserDisconnected, setPresenceIO } from './presence.js';
 import { Server, Socket } from 'socket.io';
 import { verifyAuthToken } from '../auth/firebase.js';
 import { prisma } from '../db.js';
@@ -9,6 +10,7 @@ interface AuthenticatedSocket extends Socket {
 }
 
 export function setupGameSockets(io: Server): void {
+  setPresenceIO(io);
   const gameManager = GameManager.getInstance();
   gameManager.setSocketServer(io);
 
@@ -52,12 +54,17 @@ export function setupGameSockets(io: Server): void {
 
     // Join private channel for personalized cards and direct invites
     socket.join(`user:${userId}`);
+    markUserConnected(userId);
 
     // Update online presence
-    await prisma.user.update({
-      where: { id: userId },
-      data: { isOnline: true, lastSeenAt: new Date() },
-    });
+    try {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { isOnline: true, lastSeenAt: new Date() },
+      });
+    } catch (e) {
+      // Non-critical background DB sync failure
+    }
     io.emit('presence:update', { userId, isOnline: true });
 
     /**
@@ -109,17 +116,17 @@ export function setupGameSockets(io: Server): void {
      */
     socket.on(
       'game:passCard',
-      ({ roomId, cardId }: { roomId: string; cardId: string }) => {
+      async ({ roomId, cardId }: { roomId: string; cardId: string }) => {
         // Rate-limit check (prevent double-clicks, bursts, spamming)
         const now = Date.now();
         const lastTime = lastPassTime.get(userId) || 0;
-        if (now - lastTime < 400) {
+        if (now - lastTime < 300) {
           socket.emit('game:error', { message: 'Transfer in progress. Please wait a moment.' });
           return;
         }
         lastPassTime.set(userId, now);
 
-        const game = gameManager.getGame(roomId);
+        const game = await gameManager.getGameAsync(roomId);
         if (!game) {
           socket.emit('game:error', { message: 'No active match found for this room.' });
           return;
@@ -131,6 +138,9 @@ export function setupGameSockets(io: Server): void {
           return;
         }
 
+        // Save to PostgreSQL database immediately to guarantee 100% sync across all instances
+        await gameManager.saveGame(game);
+
         // Broadcast updated states (public to room, private to sender and receiver)
         gameManager.broadcastGameState(roomId);
       }
@@ -139,8 +149,8 @@ export function setupGameSockets(io: Server): void {
     /**
      * Declare 16 Parchi Win
      */
-    socket.on('game:declare', ({ roomId }: { roomId: string }) => {
-      const game = gameManager.getGame(roomId);
+    socket.on('game:declare', async ({ roomId }: { roomId: string }) => {
+      const game = await gameManager.getGameAsync(roomId);
       if (!game) {
         socket.emit('game:error', { message: 'No active match found.' });
         return;
@@ -158,6 +168,7 @@ export function setupGameSockets(io: Server): void {
         return;
       }
 
+      await gameManager.saveGame(game);
       gameManager.broadcastGameState(roomId);
     });
 
@@ -208,10 +219,15 @@ export function setupGameSockets(io: Server): void {
       // Check if user has other open sockets
       const userSockets = await io.in(`user:${userId}`).fetchSockets();
       if (userSockets.length === 0) {
-        await prisma.user.update({
-          where: { id: userId },
-          data: { isOnline: false, lastSeenAt: new Date() },
-        });
+        markUserDisconnected(userId);
+        try {
+          await prisma.user.update({
+            where: { id: userId },
+            data: { isOnline: false, lastSeenAt: new Date() },
+          });
+        } catch (e) {
+          // Non-critical background DB sync failure
+        }
         io.emit('presence:update', { userId, isOnline: false });
       }
     });

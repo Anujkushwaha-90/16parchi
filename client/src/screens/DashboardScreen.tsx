@@ -4,6 +4,8 @@ import { useToast } from '../context/ToastContext.js';
 import { sound } from '../services/sound.js';
 import { api } from '../services/api.js';
 import { RoomInvite } from '../types/index.js';
+import { VipLoveAura, VipBadgeTag } from '../components/VipLoveAura.js';
+import { isVipUser } from '../utils/vip.js';
 import {
   Trophy,
   Swords,
@@ -16,6 +18,7 @@ import {
   Copy,
   Check,
   BellRing,
+  Camera,
 } from 'lucide-react';
 
 interface DashboardScreenProps {
@@ -29,6 +32,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 }) => {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const isVip = isVipUser(user);
   const [invites, setInvites] = useState<RoomInvite[]>([]);
   const [copiedCode, setCopiedCode] = useState(false);
   const [joinCodeInput, setJoinCodeInput] = useState('');
@@ -111,26 +115,83 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       )}
 
       {/* Player Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-table-surface via-table-card to-emerald-950/30 border border-table-border p-6 sm:p-8 shadow-xl">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+      <div
+        className={`relative overflow-hidden rounded-3xl p-6 sm:p-8 shadow-xl transition-all ${
+          isVip
+            ? 'bg-gradient-to-br from-stone-950 via-rose-950/30 to-stone-950 border-2 border-rose-500/60 shadow-[0_0_40px_rgba(244,63,94,0.3)]'
+            : 'bg-gradient-to-br from-table-surface via-table-card to-emerald-950/30 border border-table-border'
+        }`}
+      >
+        {isVip && (
+          <div className="absolute -top-24 -left-24 w-60 h-60 bg-rose-500/20 rounded-full blur-3xl pointer-events-none animate-pulse" />
+        )}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 relative z-10">
           <div className="flex items-center gap-4 sm:gap-6">
-            <div className="relative">
-              <img
-                src={user.avatarUrl}
-                alt={user.displayName}
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-gold-400/60 object-cover bg-emerald-950 shadow-gold-glow"
-              />
-              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-table-dark flex items-center justify-center">
-                <div className="w-2 h-2 rounded-full bg-white" />
+            {isVip ? (
+              <div className="relative group">
+                <VipLoveAura size="lg">
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.displayName}
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-white/60 object-cover bg-stone-900 shadow-md cursor-pointer"
+                    onClick={() => {
+                      sound.playClick();
+                      onNavigate('settings');
+                    }}
+                  />
+                </VipLoveAura>
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    onNavigate('settings');
+                  }}
+                  title="Change Profile Photo"
+                  className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-gold-500 hover:bg-gold-400 text-table-dark shadow-md transition-transform hover:scale-110 border border-table-dark"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                </button>
               </div>
-            </div>
+            ) : (
+              <div className="relative group">
+                <img
+                  src={user.avatarUrl}
+                  alt={user.displayName}
+                  onClick={() => {
+                    sound.playClick();
+                    onNavigate('settings');
+                  }}
+                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-gold-400/60 object-cover bg-emerald-950 shadow-gold-glow cursor-pointer transition-transform group-hover:scale-105"
+                />
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    onNavigate('settings');
+                  }}
+                  title="Change Profile Photo"
+                  className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-gold-500 hover:bg-gold-400 text-table-dark shadow-md transition-transform hover:scale-110 border border-table-dark"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
 
             <div>
+              {isVip && (
+                <div className="mb-1.5 animate-bounce">
+                  <VipBadgeTag />
+                </div>
+              )}
               <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-xl sm:text-2xl font-serif font-black text-ivory-100">
+                <h2
+                  className={`text-xl sm:text-2xl font-serif font-black ${
+                    isVip
+                      ? 'bg-gradient-to-r from-rose-200 via-pink-100 to-amber-200 bg-clip-text text-transparent drop-shadow'
+                      : 'text-ivory-100'
+                  }`}
+                >
                   {user.displayName}
                 </h2>
-                <Crown className="w-5 h-5 text-gold-400" />
+                <Crown className={`w-5 h-5 ${isVip ? 'text-rose-400' : 'text-gold-400'}`} />
               </div>
               <div className="text-xs text-stone-400 font-mono flex items-center gap-3">
                 <span>@{user.username}</span>

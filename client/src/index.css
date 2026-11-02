@@ -73,3 +73,140 @@
   box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
   transform: translateY(-1px);
 }
+
+
+/* ========================================================
+   ROYAL 3D LOVE VIP AURA & HEART ANIMATIONS (EXCLUSIVE)
+   ======================================================== */
+
+.animate-heartbeat-3d {
+  animation: heartBeat3D 1.8s infinite ease-in-out;
+  transform-style: preserve-3d;
+}
+
+.animate-orbit-1 {
+  animation: orbit3D-1 4.5s infinite linear;
+}
+
+.animate-orbit-2 {
+  animation: orbit3D-2 5.5s infinite linear;
+}
+
+.animate-love-pulse {
+  animation: loveGlowPulse 2.5s infinite ease-in-out;
+}
+
+@keyframes heartBeat3D {
+  0% {
+    transform: scale(1) translateZ(0);
+    filter: drop-shadow(0 0 8px rgba(244, 63, 94, 0.6));
+  }
+  14% {
+    transform: scale(1.22) translateZ(25px);
+    filter: drop-shadow(0 0 28px rgba(244, 63, 94, 0.95)) drop-shadow(0 0 45px rgba(236, 72, 153, 0.8));
+  }
+  28% {
+    transform: scale(1.06) translateZ(10px);
+    filter: drop-shadow(0 0 16px rgba(244, 63, 94, 0.7));
+  }
+  42% {
+    transform: scale(1.28) translateZ(35px);
+    filter: drop-shadow(0 0 38px rgba(244, 63, 94, 1)) drop-shadow(0 0 60px rgba(251, 113, 133, 0.9));
+  }
+  70% {
+    transform: scale(1) translateZ(0);
+    filter: drop-shadow(0 0 8px rgba(244, 63, 94, 0.6));
+  }
+  100% {
+    transform: scale(1) translateZ(0);
+    filter: drop-shadow(0 0 8px rgba(244, 63, 94, 0.6));
+  }
+}
+
+@keyframes orbit3D-1 {
+  0% {
+    transform: rotate(0deg) translateX(44px) rotate(0deg) scale(0.9);
+    z-index: 25;
+    opacity: 0.9;
+  }
+  25% {
+    transform: rotate(90deg) translateX(50px) rotate(-90deg) scale(1.2);
+    z-index: 35;
+    opacity: 1;
+  }
+  50% {
+    transform: rotate(180deg) translateX(44px) rotate(-180deg) scale(0.85);
+    z-index: 10;
+    opacity: 0.7;
+  }
+  75% {
+    transform: rotate(270deg) translateX(36px) rotate(-270deg) scale(0.65);
+    z-index: 5;
+    opacity: 0.45;
+  }
+  100% {
+    transform: rotate(360deg) translateX(44px) rotate(-360deg) scale(0.9);
+    z-index: 25;
+    opacity: 0.9;
+  }
+}
+
+@keyframes orbit3D-2 {
+  0% {
+    transform: rotate(180deg) translateX(50px) rotate(-180deg) scale(0.85);
+    z-index: 5;
+    opacity: 0.6;
+  }
+  25% {
+    transform: rotate(270deg) translateX(38px) rotate(-270deg) scale(0.65);
+    z-index: 5;
+    opacity: 0.45;
+  }
+  50% {
+    transform: rotate(360deg) translateX(50px) rotate(-360deg) scale(0.9);
+    z-index: 25;
+    opacity: 0.85;
+  }
+  75% {
+    transform: rotate(450deg) translateX(56px) rotate(-450deg) scale(1.25);
+    z-index: 35;
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(540deg) translateX(50px) rotate(-540deg) scale(0.85);
+    z-index: 5;
+    opacity: 0.6;
+  }
+}
+
+@keyframes floatHeartUp {
+  0% {
+    transform: translateY(0) scale(0.5) rotate(-10deg);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.95;
+    transform: translateY(-25px) scale(0.9) rotate(8deg);
+  }
+  75% {
+    opacity: 0.85;
+    transform: translateY(-70px) scale(1.15) rotate(-12deg);
+  }
+  100% {
+    transform: translateY(-110px) scale(1.3) rotate(15deg);
+    opacity: 0;
+  }
+}
+
+.float-heart-1 {
+  animation: floatHeartUp 3.2s infinite ease-out;
+}
+.float-heart-2 {
+  animation: floatHeartUp 4s infinite ease-out 1.2s;
+}
+.float-heart-3 {
+  animation: floatHeartUp 3.6s infinite ease-out 2.1s;
+}
+.float-heart-4 {
+  animation: floatHeartUp 4.4s infinite ease-out 0.6s;
+}

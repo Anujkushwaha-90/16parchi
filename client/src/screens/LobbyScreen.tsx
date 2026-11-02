@@ -6,6 +6,8 @@ import { sound } from '../services/sound.js';
 import { api } from '../services/api.js';
 import { GameRoom, CustomDeckConfig } from '../types/index.js';
 import { InviteFriendsModal } from '../components/Modals/InviteFriendsModal.js';
+import { UserProfileModal } from '../components/Modals/UserProfileModal.js';
+import { isVipUser } from '../utils/vip.js';
 import {
   Crown,
   Copy,
@@ -46,6 +48,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   const [showDeckPreview, setShowDeckPreview] = useState<boolean>(false);
   const [showCapacityModal, setShowCapacityModal] = useState<boolean>(false);
   const [starting, setStarting] = useState<boolean>(false);
+  const [selectedLobbyProfile, setSelectedLobbyProfile] = useState<any>(null);
 
   const fetchRoom = async () => {
     try {
@@ -357,18 +360,36 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
                 {/* Player Information or Empty Slot */}
                 {member ? (
-                  <div className="text-center py-2 space-y-2">
+                  <div
+                    onClick={() => {
+                      sound.playClick();
+                      setSelectedLobbyProfile(member);
+                    }}
+                    title="Click to view player profile & stats"
+                    className="text-center py-2 space-y-2 cursor-pointer hover:scale-105 transition-transform group"
+                  >
                     <div className="relative inline-block">
-                      <img
-                        src={
-                          member.isBot
-                            ? member.botAvatar ||
-                              `https://api.dicebear.com/7.x/bottts/svg?seed=Bot${seatIndex}`
-                            : member.user?.avatarUrl || ''
-                        }
-                        alt="Player"
-                        className="w-16 h-16 rounded-2xl border-2 border-gold-400/60 object-cover bg-emerald-950 mx-auto shadow-md"
-                      />
+                      {isVipUser(member?.user) ? (
+                        <div className="relative">
+                          <img
+                            src={member.user?.avatarUrl || ''}
+                            alt="Player"
+                            className="w-16 h-16 rounded-full border-2 border-rose-400 object-cover bg-stone-900 mx-auto shadow-[0_0_20px_rgba(244,63,94,0.7)] animate-heartbeat-3d"
+                          />
+                          <span className="absolute -top-2 -right-1 text-sm animate-bounce">💖</span>
+                        </div>
+                      ) : (
+                        <img
+                          src={
+                            member.isBot
+                              ? member.botAvatar ||
+                                `https://api.dicebear.com/7.x/bottts/svg?seed=Bot${seatIndex}`
+                              : member.user?.avatarUrl || ''
+                          }
+                          alt="Player"
+                          className="w-16 h-16 rounded-2xl border-2 border-gold-400/60 object-cover bg-emerald-950 mx-auto shadow-md"
+                        />
+                      )}
                       {member.isReady ? (
                         <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow">
                           <Check className="w-3.5 h-3.5 stroke-[3]" />
@@ -574,6 +595,28 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
         isOpen={showInviteModal}
         onClose={() => setShowInviteModal(false)}
         roomCode={room.code}
+      />
+      {/* Member Profile Modal */}
+      <UserProfileModal
+        isOpen={Boolean(selectedLobbyProfile)}
+        onClose={() => setSelectedLobbyProfile(null)}
+        target={
+          selectedLobbyProfile
+            ? {
+                id: selectedLobbyProfile.userId || selectedLobbyProfile.user?.id,
+                userId: selectedLobbyProfile.userId || selectedLobbyProfile.user?.id,
+                username: selectedLobbyProfile.isBot ? 'bot' : selectedLobbyProfile.user?.username || '',
+                displayName: selectedLobbyProfile.isBot
+                  ? selectedLobbyProfile.botName
+                  : selectedLobbyProfile.user?.displayName || '',
+                avatarUrl: selectedLobbyProfile.isBot
+                  ? selectedLobbyProfile.botAvatar || ''
+                  : selectedLobbyProfile.user?.avatarUrl || '',
+                friendCode: selectedLobbyProfile.user?.friendCode,
+                isBot: selectedLobbyProfile.isBot,
+              }
+            : null
+        }
       />
     </div>
   );

@@ -39,6 +39,7 @@ export class ParchiGame {
   public roundNumber: number;
   public turnTimeSeconds: number;
   public timeRemaining: number;
+  public turnStartedAt: number;
   public rankings: RankingEntry[];
   public lastTransfer: { fromSeat: number; toSeat: number; timestamp: number } | null = null;
   public logs: GameLogEntry[] = [];
@@ -65,7 +66,7 @@ export class ParchiGame {
       seatIndex: number;
     }>,
     theme: CardTheme = 'royals',
-    turnTimeSeconds: number = 20,
+    turnTimeSeconds: number = 60,
     customDeckConfig?: CustomDeckConfig | null,
     playerCount?: number
   ) {
@@ -84,6 +85,7 @@ export class ParchiGame {
     this.roundNumber = 1;
     this.turnTimeSeconds = turnTimeSeconds;
     this.timeRemaining = turnTimeSeconds;
+    this.turnStartedAt = Date.now();
     this.rankings = [];
     this.createdAt = Date.now();
 
@@ -108,6 +110,9 @@ export class ParchiGame {
           finishedRank: null,
           winningCards: null,
           declaredAt: null,
+          missedTurns: 0,
+          isEliminated: false,
+          ranOut: false,
         });
       } else {
         // Fallback bot placeholder if seat empty
@@ -125,6 +130,9 @@ export class ParchiGame {
           finishedRank: null,
           winningCards: null,
           declaredAt: null,
+          missedTurns: 0,
+          isEliminated: false,
+          ranOut: false,
         });
       }
     }
@@ -162,6 +170,7 @@ export class ParchiGame {
     this.activeSeat = 0;
     this.turnNumber = 1;
     this.roundNumber = 1;
+    this.turnStartedAt = Date.now();
     this.timeRemaining = this.turnTimeSeconds;
 
     this.addLog(
@@ -180,7 +189,7 @@ export class ParchiGame {
     const totalSeats = this.seats.length;
     for (let step = 1; step <= totalSeats; step++) {
       const next = (fromSeat + step) % totalSeats;
-      if (this.seats[next].finishedRank === null) {
+      if (this.seats[next].finishedRank === null && !this.seats[next].ranOut) {
         return next;
       }
     }
@@ -284,6 +293,9 @@ export class ParchiGame {
         return { success: true };
       }
 
+      // Reset transfer lock before advancing turn so bot or chained turns proceed without lock blockage
+      this.isProcessingTransfer = false;
+
       // 5. Advance turn to next eligible active player in circular order
       const nextTurnSeat = this.getNextActiveSeat(this.activeSeat);
       this.advanceTurn(nextTurnSeat);
@@ -300,8 +312,8 @@ export class ParchiGame {
   private advanceTurn(nextSeatIndex: number): void {
     if (this.status === 'FINISHED') return;
 
-    // Check if match should end (only 1 active player remains)
-    const remainingActive = this.seats.filter((s) => s.finishedRank === null);
+    // Check if match should end (only 1 active non-ranOut player remains)
+    const remainingActive = this.seats.filter((s) => s.finishedRank === null && !s.ranOut);
     if (remainingActive.length <= 1) {
       if (remainingActive.length === 1) {
         this.finishSeat(remainingActive[0].seatIndex, remainingActive[0].hand[0]?.name || 'PARCHI');
@@ -311,19 +323,45 @@ export class ParchiGame {
       return;
     }
 
-    // If next seat has already finished, find next active seat
+    // If next seat has already finished or ran out, find next active seat
     let finalNext = nextSeatIndex;
-    if (this.seats[finalNext].finishedRank !== null) {
+    if (this.seats[finalNext].finishedRank !== null || this.seats[finalNext].ranOut) {
       finalNext = this.getNextActiveSeat(finalNext);
+    }
+
+    // Strict guarantee: Ensure activeSeat NEVER points to an already finished or ranOut player
+    if (this.seats[finalNext].finishedRank !== null || this.seats[finalNext].ranOut) {
+      for (let i = 0; i < this.seats.length; i++) {
+        if (this.seats[i].finishedRank === null && !this.seats[i].ranOut) {
+          finalNext = i;
+          break;
+        }
+      }
     }
 
     this.activeSeat = finalNext;
     this.turnNumber++;
     this.roundNumber = Math.floor(this.turnNumber / 4) + 1;
+    this.turnStartedAt = Date.now();
     this.timeRemaining = this.turnTimeSeconds;
 
     this.notifyState();
-    this.triggerBotIfCurrentTurn();
+
+    // Auto-advance bot turns immediately without relying on frozen timers
+    let botLoop = 0;
+    while (
+      this.status === 'ACTIVE' &&
+      this.seats[this.activeSeat]?.isBot &&
+      this.seats[this.activeSeat]?.finishedRank === null &&
+      !this.seats[this.activeSeat]?.ranOut &&
+      botLoop < 15
+    ) {
+      botLoop++;
+      const botSeat = this.seats[this.activeSeat];
+      if (!botSeat || botSeat.hand.length === 0) break;
+      const cardToPass = this.getCardToPass(botSeat.hand, botSeat.lastReceivedCardId);
+      this.passCard(botSeat.userId, cardToPass.id);
+    }
   }
 
   /**
@@ -358,27 +396,29 @@ export class ParchiGame {
       'WIN'
     );
 
-    // If only 1 active player remains, assign last place and end match safely
-    const remainingActive = this.seats.filter((s) => s.finishedRank === null);
-    if (remainingActive.length === 1) {
-      const lastSeat = remainingActive[0];
-      const lastRank = this.seats.length;
-      lastSeat.finishedRank = lastRank;
-      lastSeat.declaredAt = Date.now();
-      lastSeat.winningCards = lastSeat.hand.map((c) => c.name);
+    // If only 1 active non-ranOut player remains, assign last place and end match safely
+    const remainingActive = this.seats.filter((s) => s.finishedRank === null && !s.ranOut);
+    if (remainingActive.length <= 1) {
+      if (remainingActive.length === 1) {
+        const lastSeat = remainingActive[0];
+        const lastRank = this.seats.length;
+        lastSeat.finishedRank = lastRank;
+        lastSeat.declaredAt = Date.now();
+        lastSeat.winningCards = lastSeat.hand.map((c) => c.name);
 
-      this.rankings.push({
-        rank: lastRank,
-        seatIndex: lastSeat.seatIndex,
-        userId: lastSeat.userId,
-        displayName: lastSeat.displayName,
-        avatarUrl: lastSeat.avatarUrl,
-        isBot: lastSeat.isBot,
-        cardName: lastSeat.hand[0]?.name || 'PARCHI',
-        declaredAt: lastSeat.declaredAt,
-      });
+        this.rankings.push({
+          rank: lastRank,
+          seatIndex: lastSeat.seatIndex,
+          userId: lastSeat.userId,
+          displayName: lastSeat.displayName,
+          avatarUrl: lastSeat.avatarUrl,
+          isBot: lastSeat.isBot,
+          cardName: lastSeat.hand[0]?.name || 'PARCHI',
+          declaredAt: lastSeat.declaredAt,
+        });
 
-      this.addLog(`Game Over! ${lastSeat.displayName} finished in ${lastRank}th place.`, 'WIN');
+        this.addLog(`Game Over! ${lastSeat.displayName} finished in ${lastRank}th place.`, 'WIN');
+      }
       this.endMatch();
     }
   }
@@ -408,7 +448,58 @@ export class ParchiGame {
     }
 
     this.finishSeat(seatIndex, firstCardName);
-    this.notifyState();
+
+    // If game has completed (e.g. last player assigned), notify and return
+    if ((this.status as MatchStatus) === 'FINISHED') {
+      this.notifyState();
+      return { success: true };
+    }
+
+    // Critical: If the winning player currently held the turn, immediately advance to the next active player
+    if (this.activeSeat === seatIndex) {
+      const nextSeat = this.getNextActiveSeat(seatIndex);
+      this.advanceTurn(nextSeat);
+    } else {
+      this.notifyState();
+    }
+
+    return { success: true };
+  }
+
+  /**
+   * Handle player leaving / running out mid-game
+   * Marks player as RAN OUT, immediately skips/passes their turn if active, and converts to fast auto-pass
+   */
+  public playerRanOut(userId: string): { success: boolean; error?: string } {
+    const seat = this.seats.find((s) => s.userId === userId);
+    if (!seat) return { success: false, error: 'Seat not found' };
+
+    seat.ranOut = true;
+    seat.isBot = true;
+    seat.isConnected = false;
+    seat.isEliminated = true;
+
+    this.addLog(`🏃‍♂️ ${seat.displayName} ran out of the match!`, 'SYSTEM');
+
+    // If only 1 non-ranOut human player remains, end match and grant them the win
+    const activeHumans = this.seats.filter((s) => !s.ranOut && !s.isBot && s.finishedRank === null);
+    if (activeHumans.length === 1) {
+      const winner = activeHumans[0];
+      this.finishSeat(winner.seatIndex, winner.hand[0]?.name || 'PARCHI');
+      this.endMatch();
+      this.notifyState();
+      return { success: true };
+    }
+
+    // If it was currently their turn, skip their chance immediately!
+    if (this.status === 'ACTIVE' && this.activeSeat === seat.seatIndex && seat.hand.length > 0) {
+      const cardToPass = this.getCardToPass(seat.hand, seat.lastReceivedCardId);
+      this.addLog(`⚡ ${seat.displayName}'s turn was skipped immediately (Ran Out).`, 'SYSTEM');
+      this.passCard(seat.userId, cardToPass.id);
+    } else {
+      this.notifyState();
+    }
+
     return { success: true };
   }
 
@@ -449,15 +540,47 @@ export class ParchiGame {
   }
 
   /**
-   * Timeout auto-move: picks a non-matching card to pass
+   * Timeout auto-move: picks a non-matching card to pass and applies Ludo 5-misses strike rule
    */
   private handleTurnTimeout(): void {
     const currentSeat = this.seats[this.activeSeat];
-    if (currentSeat && currentSeat.hand.length > 0) {
-      const cardToPass = this.getCardToPass(currentSeat.hand, currentSeat.lastReceivedCardId);
-      this.addLog(`${currentSeat.displayName} timed out. Auto-passing a parchi.`, 'SYSTEM');
-      this.passCard(currentSeat.userId, cardToPass.id);
+    if (!currentSeat) return;
+
+    // If current active seat is already finished, immediately advance to the next active player
+    if (currentSeat.finishedRank !== null) {
+      const nextSeat = this.getNextActiveSeat(this.activeSeat);
+      if (nextSeat !== this.activeSeat) {
+        this.advanceTurn(nextSeat);
+      }
+      return;
     }
+
+    if (currentSeat.hand.length === 0) return;
+
+    if (!currentSeat.isBot) {
+      currentSeat.missedTurns = (currentSeat.missedTurns || 0) + 1;
+      const livesLeft = Math.max(0, 5 - currentSeat.missedTurns);
+
+      this.addLog(
+        `⏱️ ${currentSeat.displayName} missed turn! (${currentSeat.missedTurns}/5 strikes • ${livesLeft} lives left)`,
+        'SYSTEM'
+      );
+
+      // If accumulated 5 missed turns, remove from human control and convert to AI Bot / Auto
+      if (currentSeat.missedTurns >= 5) {
+        currentSeat.isBot = true;
+        currentSeat.isEliminated = true;
+        this.addLog(
+          `🚫 ${currentSeat.displayName} reached 5 strikes and was replaced by AI Bot (Auto-play)!`,
+          'SYSTEM'
+        );
+      }
+    } else {
+      this.addLog(`${currentSeat.displayName} auto-passed a parchi.`, 'SYSTEM');
+    }
+
+    const cardToPass = this.getCardToPass(currentSeat.hand, currentSeat.lastReceivedCardId);
+    this.passCard(currentSeat.userId, cardToPass.id);
   }
 
   /**
@@ -550,9 +673,22 @@ export class ParchiGame {
   }
 
   /**
+   * Sync wall-clock timer authoritative state across serverless instances
+   */
+  public syncTurnTimer(): void {
+    if (this.status !== 'ACTIVE') return;
+    const elapsed = Math.floor((Date.now() - (this.turnStartedAt || Date.now())) / 1000);
+    this.timeRemaining = Math.max(0, this.turnTimeSeconds - elapsed);
+    if (this.timeRemaining <= 0) {
+      this.handleTurnTimeout();
+    }
+  }
+
+  /**
    * Return sanitized public state: NEVER reveals any player's actual hand cards
    */
   public getPublicState(): PublicGameState {
+    this.syncTurnTimer();
     return {
       matchId: this.matchId,
       roomId: this.roomId,
@@ -573,6 +709,9 @@ export class ParchiGame {
         finishedRank: s.finishedRank,
         // Only show winning cards if they have finished!
         winningCards: s.winningCards,
+        missedTurns: s.missedTurns || 0,
+        isEliminated: !!s.isEliminated,
+        ranOut: !!s.ranOut,
       })),
       activeSeat: this.activeSeat,
       turnNumber: this.turnNumber,
@@ -616,5 +755,71 @@ export class ParchiGame {
       clearInterval(this.timerInterval);
       this.timerInterval = null;
     }
+  }
+
+  public toJSON() {
+    return {
+      matchId: this.matchId,
+      roomId: this.roomId,
+      roomCode: this.roomCode,
+      theme: this.theme,
+      status: this.status,
+      seats: this.seats,
+      activeSeat: this.activeSeat,
+      turnNumber: this.turnNumber,
+      roundNumber: this.roundNumber,
+      turnTimeSeconds: this.turnTimeSeconds,
+      turnStartedAt: this.turnStartedAt,
+      timeRemaining: this.timeRemaining,
+      rankings: this.rankings,
+      lastTransfer: this.lastTransfer,
+      logs: this.logs,
+      createdAt: this.createdAt,
+      endedAt: this.endedAt,
+      playerCount: this.playerCount,
+      customDeckConfig: this.customDeckConfig,
+    };
+  }
+
+  public static fromJSON(data: any): ParchiGame {
+    const game = new ParchiGame(
+      data.matchId,
+      data.roomId,
+      data.roomCode,
+      [],
+      data.theme,
+      data.turnTimeSeconds,
+      data.customDeckConfig,
+      data.playerCount
+    );
+    game.status = data.status || 'ACTIVE';
+    game.seats = (data.seats || []).map((s: any) => ({
+      ...s,
+      missedTurns: s.missedTurns || 0,
+      isEliminated: !!s.isEliminated,
+      ranOut: !!s.ranOut,
+    }));
+    game.activeSeat = data.activeSeat ?? 0;
+    game.turnNumber = data.turnNumber ?? 1;
+    game.roundNumber = data.roundNumber ?? 1;
+    game.turnStartedAt = data.turnStartedAt || Date.now();
+    const elapsed = Math.floor((Date.now() - game.turnStartedAt) / 1000);
+    game.timeRemaining = Math.max(0, game.turnTimeSeconds - elapsed);
+    game.rankings = data.rankings || [];
+    game.lastTransfer = data.lastTransfer || null;
+    game.logs = data.logs || [];
+    game.createdAt = data.createdAt || Date.now();
+    game.endedAt = data.endedAt || null;
+
+    // Safety: Ensure activeSeat never points to an already-finished player
+    if (game.seats[game.activeSeat] && game.seats[game.activeSeat].finishedRank !== null) {
+      game.activeSeat = game.getNextActiveSeat(game.activeSeat);
+    }
+
+    if (game.status === 'ACTIVE') {
+      game.startTurnTimer();
+    }
+
+    return game;
   }
 }

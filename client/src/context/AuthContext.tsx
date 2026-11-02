@@ -1,13 +1,21 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { UserProfile } from '../types/index.js';
 import { api } from '../services/api.js';
-import { signInWithGoogle, firebaseSignOut, isFirebaseConfigured } from '../services/firebase.js';
+import {
+  signInWithGoogle,
+  signInWithGoogleRedirect,
+  checkRedirectAuth,
+  subscribeToAuth,
+  firebaseSignOut,
+  isFirebaseConfigured,
+} from '../services/firebase.js';
 
 interface AuthContextType {
   user: UserProfile | null;
   loading: boolean;
   isFirebaseAvailable: boolean;
-  loginWithGoogle: () => Promise<void>;
+  loginWithGoogle: () => Promise<{ success: boolean; redirecting?: boolean }>;
+  loginWithGoogleRedirect: () => Promise<void>;
   loginWithDev: (username: string, displayName?: string, avatarSeed?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -19,7 +27,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // Sync token from localStorage or fetch user from server
   const refreshUser = useCallback(async () => {
+    // 1. Check if user just completed a Google Redirect login
+    try {
+      const redirectData = await checkRedirectAuth();
+      if (redirectData && redirectData.idToken) {
+        const res = await api.googleAuth(redirectData.idToken);
+        if (res && res.token && res.user) {
+          api.setToken(res.token);
+          setUser(res.user);
+          setLoading(false);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Redirect check error:', err);
+    }
+
     const token = api.getToken();
     if (!token) {
       setUser(null);
@@ -44,22 +69,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  // Subscribe to Firebase Auth and check session on mount
   useEffect(() => {
+    let isMounted = true;
     refreshUser();
+
+    // Native Firebase Auth state observer (auto-heals sessions across tabs and refreshes)
+    const unsubscribe = subscribeToAuth(async (fbUser) => {
+      if (!isMounted) return;
+      if (fbUser) {
+        try {
+          const idToken = await fbUser.getIdToken();
+          const res = await api.googleAuth(idToken);
+          if (res && res.token && res.user) {
+            api.setToken(res.token);
+            setUser(res.user);
+          }
+        } catch (err) {
+          console.warn('Firebase observer sync:', err);
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, [refreshUser]);
 
-  const loginWithGoogle = async () => {
-    setLoading(true);
-    try {
-      const { idToken } = await signInWithGoogle();
-      const res = await api.googleAuth(idToken);
-      if (res.token && res.user) {
-        api.setToken(res.token);
-        setUser(res.user);
-      }
-    } finally {
-      setLoading(false);
+  const loginWithGoogle = async (): Promise<{ success: boolean; redirecting?: boolean }> => {
+    const googleResult = await signInWithGoogle();
+    if (googleResult && googleResult.redirecting) {
+      return { success: false, redirecting: true };
     }
+    if (googleResult && googleResult.idToken) {
+      setLoading(true);
+      try {
+        const res = await api.googleAuth(googleResult.idToken);
+        if (res && res.token && res.user) {
+          api.setToken(res.token);
+          setUser(res.user);
+          return { success: true };
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+    return { success: false };
+  };
+
+  const loginWithGoogleRedirect = async () => {
+    await signInWithGoogleRedirect();
   };
 
   const loginWithDev = async (username: string, displayName?: string, avatarSeed?: string) => {
@@ -90,6 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         isFirebaseAvailable: isFirebaseConfigured,
         loginWithGoogle,
+        loginWithGoogleRedirect,
         loginWithDev,
         logout,
         refreshUser,
@@ -102,6 +165,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
   return context;
 };
