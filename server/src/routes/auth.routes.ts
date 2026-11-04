@@ -115,6 +115,24 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
 
     const sessionToken = generateSessionToken(user);
 
+    // Auto-link Dynamic Duo if user is Ayush or Palak
+    const userEmail = (user.email || '').toLowerCase().trim();
+    if (userEmail === 'singhayush20626@gmail.com' || userEmail === 'palakpandey808@gmail.com') {
+      try {
+        await prisma.dynamicDuo.updateMany({
+          where: {
+            OR: [
+              { userAEmail: userEmail },
+              { userBEmail: userEmail },
+            ],
+          },
+          data: {
+            ...(userEmail === 'singhayush20626@gmail.com' ? { userAId: user.id } : { userBId: user.id }),
+          },
+        });
+      } catch {}
+    }
+
     // Record login analytics & device information into Neon Database
     try {
       const devInfo = parseDeviceInfo(req);
@@ -198,6 +216,24 @@ router.post('/dev-login', async (req: Request, res: Response): Promise<void> => 
     }
 
     const sessionToken = generateSessionToken(user);
+
+    // Auto-link Dynamic Duo if user is Ayush or Palak
+    const userEmail = (user.email || '').toLowerCase().trim();
+    if (userEmail === 'singhayush20626@gmail.com' || userEmail === 'palakpandey808@gmail.com') {
+      try {
+        await prisma.dynamicDuo.updateMany({
+          where: {
+            OR: [
+              { userAEmail: userEmail },
+              { userBEmail: userEmail },
+            ],
+          },
+          data: {
+            ...(userEmail === 'singhayush20626@gmail.com' ? { userAId: user.id } : { userBId: user.id }),
+          },
+        });
+      } catch {}
+    }
 
     // Record login analytics & device information into Neon Database
     try {

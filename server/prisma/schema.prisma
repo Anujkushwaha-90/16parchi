@@ -44,6 +44,36 @@ model User {
   loginLogs       UserLoginLog[]
 }
 
+model DynamicDuo {
+  id           String    @id @default(uuid())
+  userAEmail   String    // singhayush20626@gmail.com
+  userBEmail   String    // palakpandey808@gmail.com
+  userAId      String?
+  userBId      String?
+  status       String    @default("PROPOSED") // PROPOSED, ACCEPTED, ACTIVE
+  proposedBy   String    @default("userA")
+  proposalText String?   @default("Will you be my Dynamic Duo, Palak? 🤝✨")
+  acceptedAt   DateTime?
+  streakDays   Int       @default(1)
+  lastStreakAt DateTime  @default(now())
+  duoTitle     String    @default("Cosmic Dynamic Duo")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userAEmail, userBEmail])
+}
+
+model DuoInteraction {
+  id          String   @id @default(uuid())
+  duoId       String
+  senderEmail String
+  type        String   // 'ROSE', 'KISS', 'HUG'
+  message     String?
+  createdAt   DateTime @default(now())
+
+  @@index([duoId])
+}
+
 model FriendRequest {
   id         String   @id @default(uuid())
   senderId   String

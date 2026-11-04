@@ -1,4 +1,7 @@
 import { romanticAudio } from '../../services/romanticAudio.js';
+import { duoAudio } from '../../services/duoAudio.js';
+import { isDuoMember, isDuoBoy, isDuoGirl, DuoBadgeTag, DuoUniqueName } from '../../utils/duo.js';
+import { DynamicDuoHandholdModal } from '../DynamicDuo/DynamicDuoHandholdModal.js';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../context/AuthContext.js';
@@ -24,6 +27,7 @@ import {
   Heart,
   Sparkles,
   Camera,
+  Shield,
 } from 'lucide-react';
 
 export interface ProfileModalData {
@@ -67,6 +71,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [isFriend, setIsFriend] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
   const [loveShowerCount, setLoveShowerCount] = useState(0);
+  const [isHandholdModalOpen, setIsHandholdModalOpen] = useState(false);
 
   const effectiveId = target?.id || target?.userId || (target?.friendCode ? target.friendCode : null);
   const isSelf = Boolean(
@@ -76,12 +81,21 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         target?.friendCode === currentUser.friendCode)
   );
 
-  // VIP Check strictly for the user
+  // VIP Check strictly for anujkushwaha9090@gmail.com
   const isVip = Boolean(
     isVipUser(profile) ||
     isVipUser(target) ||
     (isSelf && isVipUser(currentUser))
   );
+
+  // Dynamic Duo Check (Ayush Singh & Palak Pandey)
+  const isDuo = Boolean(
+    isDuoMember(profile) ||
+    isDuoMember(target) ||
+    (isSelf && isDuoMember(currentUser))
+  );
+  const isBoy = Boolean(isDuoBoy(profile) || isDuoBoy(target) || (isSelf && isDuoBoy(currentUser)));
+  const isGirl = Boolean(isDuoGirl(profile) || isDuoGirl(target) || (isSelf && isDuoGirl(currentUser)));
 
   useEffect(() => {
     if (!isOpen) return;
@@ -101,12 +115,19 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       });
       // Softly play Haareya song for Sovereign Anuj
       romanticAudio.playHaareya();
+    } else if (isDuo) {
+      sound.playWin();
+      confetti({
+        particleCount: 65,
+        spread: 85,
+        origin: { y: 0.5 },
+        colors: isBoy
+          ? ['#38bdf8', '#0284c7', '#f59e0b', '#ffffff']
+          : ['#f43f5e', '#fb7185', '#fde047', '#ffffff'],
+      });
+      // Softly play Perfect by Ed Sheeran for Dynamic Duo
+      duoAudio.playDuoSong();
     }
-
-    return () => {
-      // Instantly stop song when modal closes or unmounts
-      romanticAudio.stopHaareya();
-    };
 
     if (effectiveId && !target?.isBot) {
       setLoading(true);
@@ -138,7 +159,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           .catch(() => {});
       }
     }
-  }, [isOpen, effectiveId, isVip, isSelf, target, currentUser]);
+
+    return () => {
+      // Instantly stop all background songs when modal closes or unmounts
+      romanticAudio.stopHaareya();
+      duoAudio.stopDuoSong();
+    };
+  }, [isOpen, effectiveId, isVip, isDuo, isBoy, isGirl, isSelf, target, currentUser]);
 
   if (!isOpen || !profile) return null;
 
@@ -226,6 +253,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       onClick={() => {
         sound.playClick();
         romanticAudio.stopHaareya();
+        duoAudio.stopDuoSong();
         onClose();
       }}
       className="fixed inset-0 z-[99999] overflow-y-auto bg-black/80 backdrop-blur-md animate-fade-in"
@@ -237,6 +265,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           className={`relative w-full max-w-md my-auto rounded-3xl p-5 sm:p-6 shadow-2xl text-left transition-all duration-300 ${
             isVip
               ? 'bg-gradient-to-b from-[#180a10] via-[#220d18] to-[#12050b] border-2 border-rose-400/80 shadow-[0_0_60px_rgba(244,63,94,0.45)]'
+              : isDuo
+              ? isBoy
+                ? 'bg-gradient-to-b from-[#0a1128] via-[#101f42] to-[#080d1e] border-2 border-cyan-400/80 shadow-[0_0_60px_rgba(56,189,248,0.45)]'
+                : 'bg-gradient-to-b from-[#200918] via-[#330f26] to-[#160510] border-2 border-rose-400/80 shadow-[0_0_60px_rgba(244,63,94,0.45)]'
               : 'bg-table-surface border border-gold-500/40 shadow-2xl'
           }`}
           style={{ perspective: 1200 }}
@@ -255,11 +287,34 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
           )}
 
+          {/* Duo Ambient Starlight Glow in Background */}
+          {isDuo && (
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              <div
+                className={`absolute -top-10 -left-10 w-64 h-64 rounded-full blur-3xl animate-pulse ${
+                  isBoy ? 'bg-cyan-500/20' : 'bg-rose-500/20'
+                }`}
+              />
+              <div
+                className={`absolute -bottom-10 -right-10 w-64 h-64 rounded-full blur-3xl animate-pulse ${
+                  isBoy ? 'bg-blue-500/20' : 'bg-pink-500/20'
+                }`}
+              />
+              <span className="absolute left-6 bottom-4 text-lg opacity-70 animate-bounce">
+                {isBoy ? '🛡️' : '👑'}
+              </span>
+              <span className="absolute right-8 bottom-12 text-sm opacity-80 animate-pulse">✨</span>
+              <span className="absolute left-1/4 bottom-6 text-xl opacity-75 animate-bounce">💖</span>
+              <span className="absolute right-1/4 bottom-2 text-base opacity-70 animate-pulse">💫</span>
+            </div>
+          )}
+
           {/* Close Button */}
           <button
             onClick={() => {
               sound.playClick();
               romanticAudio.stopHaareya();
+              duoAudio.stopDuoSong();
               onClose();
             }}
             className="absolute top-4 right-4 p-2 rounded-full bg-white/5 hover:bg-white/10 text-stone-400 hover:text-ivory-100 transition-colors z-20"
@@ -267,127 +322,211 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             <X className="w-5 h-5" />
           </button>
 
-        {/* Profile Header */}
-        <div className="flex flex-col items-center text-center relative z-10 mb-3.5">
-          {/* Avatar with optional VIP 3D Love Aura */}
-          {isVip ? (
-            <div className="relative mb-2">
-              <VipLoveAura size="lg">
+          {/* Profile Header */}
+          <div className="flex flex-col items-center text-center relative z-10 mb-3.5">
+            {/* Avatar with optional VIP 3D Love Aura or Duo Crown */}
+            {isVip ? (
+              <div className="relative mb-2">
+                <VipLoveAura size="lg">
+                  <img
+                    src={profile.avatarUrl}
+                    alt={profile.displayName}
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover bg-stone-900 border-2 border-pink-200/90 shadow-[0_0_20px_rgba(244,63,94,0.7)]"
+                  />
+                </VipLoveAura>
+                {isSelf && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      onClose();
+                      onNavigate?.('settings');
+                    }}
+                    title="Change Profile Photo"
+                    className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-gold-500 hover:bg-gold-400 text-table-dark shadow-md transition-transform hover:scale-110 border border-table-dark"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            ) : isDuo ? (
+              <div
+                className="relative mb-2 cursor-pointer group"
+                onClick={() => {
+                  sound.playClick();
+                  setIsHandholdModalOpen(true);
+                }}
+                title="Dynamic Duo • Click to open Universe 🤝"
+              >
                 <img
                   src={profile.avatarUrl}
                   alt={profile.displayName}
-                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover bg-stone-900 border-2 border-pink-200/90 shadow-[0_0_20px_rgba(244,63,94,0.7)]"
+                  className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover bg-stone-900 border-2 transition-transform duration-300 group-hover:scale-105 ${
+                    isBoy
+                      ? 'border-cyan-300 shadow-[0_0_22px_rgba(56,189,248,0.7)]'
+                      : 'border-pink-300 shadow-[0_0_22px_rgba(244,63,94,0.7)]'
+                  }`}
                 />
-              </VipLoveAura>
-              {isSelf && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    sound.playClick();
-                    onClose();
-                    onNavigate?.('settings');
-                  }}
-                  title="Change Profile Photo"
-                  className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-gold-500 hover:bg-gold-400 text-table-dark shadow-md transition-transform hover:scale-110 border border-table-dark"
+                <div
+                  className={`absolute -bottom-1 -right-1 p-1 rounded-full text-white text-xs ${
+                    isBoy ? 'bg-cyan-600 border border-cyan-300' : 'bg-rose-600 border border-pink-300'
+                  }`}
                 >
-                  <Camera className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="relative mb-2">
-              <img
-                src={profile.avatarUrl}
-                alt={profile.displayName}
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover bg-emerald-950 border-2 border-gold-400/60 shadow-gold-glow"
-              />
-              {isSelf && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    sound.playClick();
-                    onClose();
-                    onNavigate?.('settings');
-                  }}
-                  title="Change Profile Photo"
-                  className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-gold-500 hover:bg-gold-400 text-table-dark shadow-md transition-transform hover:scale-110 border border-table-dark"
-                >
-                  <Camera className="w-3.5 h-3.5" />
-                </button>
-              )}
-              {profile.isBot && (
-                <div className="absolute -bottom-1 -right-1 p-1 rounded-lg bg-cyan-900 border border-cyan-400 text-cyan-200">
-                  <Bot className="w-4 h-4" />
+                  {isBoy ? '🛡️' : '👑'}
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            ) : (
+              <div className="relative mb-2">
+                <img
+                  src={profile.avatarUrl}
+                  alt={profile.displayName}
+                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover bg-emerald-950 border-2 border-gold-400/60 shadow-gold-glow"
+                />
+                {isSelf && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      onClose();
+                      onNavigate?.('settings');
+                    }}
+                    title="Change Profile Photo"
+                    className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-gold-500 hover:bg-gold-400 text-table-dark shadow-md transition-transform hover:scale-110 border border-table-dark"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                {profile.isBot && (
+                  <div className="absolute -bottom-1 -right-1 p-1 rounded-lg bg-cyan-900 border border-cyan-400 text-cyan-200">
+                    <Bot className="w-4 h-4" />
+                  </div>
+                )}
+              </div>
+            )}
 
-          {/* VIP 3D Badge Tag */}
-          {isVip && (
-            <div className="mb-1.5">
-              <VipBadgeTag subtitle="Eternal Reign of Pure Love ✨" />
-            </div>
-          )}
+            {/* VIP 3D Badge Tag */}
+            {isVip && (
+              <div className="mb-1.5">
+                <VipBadgeTag subtitle="Eternal Reign of Pure Love ✨" />
+              </div>
+            )}
 
-          {/* Player Name */}
-          {isVip ? (
-            <VipUniqueName name={profile.displayName} className="text-xl sm:text-2xl" titleClassName="mt-0.5" />
-          ) : (
-            <h2 className="text-xl sm:text-2xl font-serif font-black tracking-tight text-ivory-100">
-              {profile.displayName}
-            </h2>
-          )}
+            {/* Dynamic Duo Badge Tag */}
+            {isDuo && (
+              <div className="mb-2">
+                <DuoBadgeTag isBoy={isBoy} streakDays={1} />
+              </div>
+            )}
 
-          <p className="text-xs text-stone-400 mt-0.5 font-medium">@{profile.username}</p>
+            {/* Player Name */}
+            {isVip ? (
+              <VipUniqueName name={profile.displayName} className="text-xl sm:text-2xl" titleClassName="mt-0.5" />
+            ) : isDuo ? (
+              <DuoUniqueName name={profile.displayName} isBoy={isBoy} className="text-xl sm:text-2xl" />
+            ) : (
+              <h2 className="text-xl sm:text-2xl font-serif font-black tracking-tight text-ivory-100">
+                {profile.displayName}
+              </h2>
+            )}
 
-          {/* Friend Code Pill */}
-          {profile.friendCode && (
-            <button
-              onClick={handleCopyCode}
-              title="Click to copy Friend Code"
-              className={`mt-2 inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-mono transition-colors ${
-                isVip
-                  ? 'bg-rose-950/60 border border-rose-400/50 text-pink-200 hover:border-pink-300'
-                  : 'bg-table-dark/70 border border-gold-500/30 text-gold-300 hover:border-gold-400'
-              }`}
-            >
-              <span>{profile.friendCode}</span>
-              {copiedCode ? (
-                <Check className="w-3.5 h-3.5 text-emerald-400" />
-              ) : (
-                <Copy className="w-3.5 h-3.5 opacity-60" />
-              )}
-            </button>
-          )}
+            <p className="text-xs text-stone-400 mt-0.5 font-medium">@{profile.username}</p>
 
-          {/* VIP Romantic Song Playing Indicator */}
-          {isVip && (
-            <div className="mt-2 flex items-center justify-center">
+            {/* Friend Code Pill */}
+            {profile.friendCode && (
               <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  sound.playClick();
-                  romanticAudio.toggleHaareya();
-                }}
-                title="Song: Haareya (Meri Pyaari Bindu) • Tap to Pause / Play"
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-rose-950/70 border border-rose-400/40 text-pink-200 hover:border-pink-300 shadow-[0_0_12px_rgba(244,63,94,0.35)] transition-all hover:scale-105 active:scale-95"
+                onClick={handleCopyCode}
+                title="Click to copy Friend Code"
+                className={`mt-2 inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-mono transition-colors ${
+                  isVip
+                    ? 'bg-rose-950/60 border border-rose-400/50 text-pink-200 hover:border-pink-300'
+                    : isDuo
+                    ? isBoy
+                      ? 'bg-cyan-950/60 border border-cyan-400/50 text-cyan-200 hover:border-cyan-300'
+                      : 'bg-rose-950/60 border border-rose-400/50 text-pink-200 hover:border-pink-300'
+                    : 'bg-table-dark/70 border border-gold-500/30 text-gold-300 hover:border-gold-400'
+                }`}
               >
-                <span className="text-xs animate-pulse">🎵</span>
-                <span>Haareya • Arijit Singh</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                <span>{profile.friendCode}</span>
+                {copiedCode ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5 opacity-60" />
+                )}
+              </button>
+            )}
+
+            {/* VIP Romantic Song Playing Indicator */}
+            {isVip && (
+              <div className="mt-2 flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    sound.playClick();
+                    romanticAudio.toggleHaareya();
+                  }}
+                  title="Song: Haareya (Meri Pyaari Bindu) • Tap to Pause / Play"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-rose-950/70 border border-rose-400/40 text-pink-200 hover:border-pink-300 shadow-[0_0_12px_rgba(244,63,94,0.35)] transition-all hover:scale-105 active:scale-95"
+                >
+                  <span className="text-xs animate-pulse">🎵</span>
+                  <span>Haareya • Arijit Singh</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                </button>
+              </div>
+            )}
+
+            {/* Dynamic Duo Romantic Song Indicator */}
+            {isDuo && (
+              <div className="mt-2 flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    sound.playClick();
+                    duoAudio.toggleDuoSong();
+                  }}
+                  title="Song: Perfect • Ed Sheeran • Tap to Pause / Play"
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border transition-all hover:scale-105 active:scale-95 ${
+                    isBoy
+                      ? 'bg-cyan-950/70 border-cyan-400/40 text-cyan-200 hover:border-cyan-300 shadow-[0_0_12px_rgba(56,189,248,0.35)]'
+                      : 'bg-rose-950/70 border-rose-400/40 text-pink-200 hover:border-pink-300 shadow-[0_0_12px_rgba(244,63,94,0.35)]'
+                  }`}
+                >
+                  <span className="text-xs animate-pulse">🎵</span>
+                  <span>Perfect • Ed Sheeran</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                </button>
+              </div>
+            )}
+
+            {profile.isBot && (
+              <div className="mt-1.5 px-3 py-0.5 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-[11px] text-cyan-300 flex items-center gap-1.5">
+                <Bot className="w-3.5 h-3.5" />
+                <span>AI Automated Bot</span>
+              </div>
+            )}
+          </div>
+
+          {/* Dynamic Duo 3D Hand-Hold Universe Button */}
+          {isDuo && (
+            <div className="mb-3 relative z-10">
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  setIsHandholdModalOpen(true);
+                }}
+                className={`w-full py-2.5 px-3 rounded-2xl text-white text-xs font-black flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg ${
+                  isBoy
+                    ? 'bg-gradient-to-r from-cyan-600 via-sky-600 to-amber-500 hover:from-cyan-500 hover:to-amber-400 shadow-[0_0_20px_rgba(56,189,248,0.6)]'
+                    : 'bg-gradient-to-r from-rose-600 via-pink-600 to-amber-500 hover:from-rose-500 hover:to-amber-400 shadow-[0_0_20px_rgba(244,63,94,0.6)]'
+                }`}
+              >
+                <span className="text-base">🤝</span>
+                <span>3D Dynamic Duo Universe (Hand-Hold)</span>
+                <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full font-mono">3D ✨</span>
               </button>
             </div>
           )}
-
-          {profile.isBot && (
-            <div className="mt-1.5 px-3 py-0.5 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-[11px] text-cyan-300 flex items-center gap-1.5">
-              <Bot className="w-3.5 h-3.5" />
-              <span>AI Automated Bot</span>
-            </div>
-          )}
-        </div>
 
         {/* 3D Interactive Love Shower & 3D Universe Entry for VIP */}
         {isVip && (
@@ -571,6 +710,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         </div>
       </div>
     </div>
+    {isHandholdModalOpen && (
+      <DynamicDuoHandholdModal
+        isOpen={isHandholdModalOpen}
+        onClose={() => setIsHandholdModalOpen(false)}
+        targetUser={profile}
+      />
+    )}
   </div>,
   document.body
 );

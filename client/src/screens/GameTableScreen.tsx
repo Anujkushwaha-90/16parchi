@@ -6,6 +6,7 @@ import { sound } from '../services/sound.js';
 import { Card } from '../components/Card.js';
 import { UserProfileModal } from '../components/Modals/UserProfileModal.js';
 import { isVipUser } from '../utils/vip.js';
+import { isDuoMember, isDuoBoy, isDuoGirl } from '../utils/duo.js';
 import { ParchiCard, PublicPlayerSeat } from '../types/index.js';
 import {
   Crown,
@@ -129,6 +130,8 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
   const renderOpponentPod = (seat: PublicPlayerSeat, positionLabel: string) => {
     const isTurn = publicState.activeSeat === seat.seatIndex && seat.finishedRank === null;
     const isOpponentVip = isVipUser(seat);
+    const isDuo = isDuoMember(seat);
+    const isBoy = isDuoBoy(seat);
 
     return (
       <div
@@ -140,6 +143,10 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
         className={`relative flex flex-col items-center transition-all p-3 rounded-2xl cursor-pointer hover:scale-105 active:scale-95 group ${
           isOpponentVip
             ? 'border-2 border-rose-500/60 bg-rose-950/20 shadow-[0_0_20px_rgba(244,63,94,0.3)]'
+            : isDuo
+            ? isBoy
+              ? 'border-2 border-cyan-400/80 bg-cyan-950/30 shadow-[0_0_20px_rgba(56,189,248,0.4)]'
+              : 'border-2 border-rose-400/80 bg-rose-950/30 shadow-[0_0_20px_rgba(244,63,94,0.4)]'
             : isTurn
             ? 'scale-105 ring-2 ring-gold-400 bg-gold-500/10 shadow-gold-glow'
             : 'bg-table-dark/70 border border-table-border/60 hover:border-gold-500/40'
@@ -170,6 +177,21 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
                 className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-rose-400 object-cover bg-stone-900 shadow-[0_0_16px_rgba(244,63,94,0.8)] animate-heartbeat-3d"
               />
               <span className="absolute -top-2 -right-1 text-xs animate-bounce pointer-events-none">💖</span>
+            </div>
+          ) : isDuo ? (
+            <div className="relative">
+              <img
+                src={seat.avatarUrl}
+                alt={seat.displayName}
+                className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover bg-stone-900 border-2 ${
+                  isBoy
+                    ? 'border-cyan-300 shadow-[0_0_16px_rgba(56,189,248,0.7)]'
+                    : 'border-pink-300 shadow-[0_0_16px_rgba(244,63,94,0.7)]'
+                }`}
+              />
+              <span className="absolute -top-2 -right-1 text-xs animate-bounce pointer-events-none">
+                {isBoy ? '🛡️' : '👑'}
+              </span>
             </div>
           ) : (
             <img
@@ -255,6 +277,20 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Dynamic Duo Presence Ribbon when both Ayush & Palak are at the table */}
+      {publicState.seats.some((s) => isDuoBoy(s)) &&
+        publicState.seats.some((s) => isDuoGirl(s)) && (
+          <div className="mt-2 flex items-center justify-center">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-cyan-950/80 via-purple-950/80 to-rose-950/80 border border-amber-400/50 text-amber-200 text-xs font-black shadow-[0_0_15px_rgba(244,63,94,0.4)] animate-pulse">
+              <span className="text-sm">🤝</span>
+              <span>Cosmic Dynamic Duo in Match • Ayush & Palak</span>
+              <span className="text-xs bg-rose-500/40 px-2 py-0.5 rounded-full font-mono text-pink-100">
+                Bond Active 💖
+              </span>
+            </div>
+          </div>
+        )}
 
       {/* Main Playing Table Felt */}
       <div className="relative my-4 flex-1 flex flex-col justify-between items-center rounded-[40px] sm:rounded-[60px] table-felt p-4 sm:p-8 min-h-[460px] sm:min-h-[520px]">

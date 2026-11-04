@@ -4,7 +4,8 @@ import { useToast } from '../context/ToastContext.js';
 import { sound } from '../services/sound.js';
 import { UserProfileModal } from './Modals/UserProfileModal.js';
 import { isVipUser } from '../utils/vip.js';
-import { Volume2, VolumeX, Users, Swords, History, Settings, LogOut, Copy, Check, Menu, X, Crown } from 'lucide-react';
+import { isDuoMember, isDuoBoy, isDuoGirl } from '../utils/duo.js';
+import { Volume2, VolumeX, Users, Swords, History, Settings, LogOut, Copy, Check, Menu, X, Crown, Shield } from 'lucide-react';
 
 interface NavbarProps {
   currentScreen: string;
@@ -24,6 +25,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const isVip = isVipUser(user);
+  const isDuo = isDuoMember(user);
+  const isBoy = isDuoBoy(user);
+  const isGirl = isDuoGirl(user);
 
   const toggleSound = () => {
     const next = !isMuted;
@@ -148,17 +152,29 @@ export const Navbar: React.FC<NavbarProps> = ({
                       className={`w-8 h-8 rounded-full border object-cover bg-emerald-950 transition-transform group-hover:scale-110 ${
                         isVip
                           ? 'border-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.9)] ring-2 ring-pink-500/60 animate-heartbeat-3d'
+                          : isDuo
+                          ? isBoy
+                            ? 'border-cyan-300 shadow-[0_0_15px_rgba(56,189,248,0.9)] ring-2 ring-cyan-500/60'
+                            : 'border-pink-300 shadow-[0_0_15px_rgba(244,63,94,0.9)] ring-2 ring-pink-500/60'
                           : 'border-gold-400/50 shadow-md'
                       }`}
                     />
-                    {isVip && (
+                    {isVip ? (
                       <span className="absolute -top-1.5 -right-1.5 text-[10px] animate-bounce pointer-events-none">💖</span>
-                    )}
+                    ) : isDuo ? (
+                      <span className="absolute -top-1.5 -right-1.5 text-[10px] animate-bounce pointer-events-none">
+                        {isBoy ? '🛡️' : '👑'}
+                      </span>
+                    ) : null}
                   </div>
                   <span
                     className={`hidden lg:inline text-xs font-bold max-w-[100px] truncate ${
                       isVip
                         ? 'bg-gradient-to-r from-rose-300 via-pink-200 to-amber-200 bg-clip-text text-transparent font-black'
+                        : isDuo
+                        ? isBoy
+                          ? 'bg-gradient-to-r from-cyan-300 via-sky-200 to-amber-200 bg-clip-text text-transparent font-black'
+                          : 'bg-gradient-to-r from-rose-300 via-pink-200 to-amber-200 bg-clip-text text-transparent font-black'
                         : 'text-ivory-100 group-hover:text-gold-300'
                     }`}
                   >

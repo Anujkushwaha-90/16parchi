@@ -6,6 +6,8 @@ import { api } from '../services/api.js';
 import { RoomInvite } from '../types/index.js';
 import { VipLoveAura, VipBadgeTag } from '../components/VipLoveAura.js';
 import { isVipUser } from '../utils/vip.js';
+import { isDuoMember, isDuoBoy, isDuoGirl, DuoBadgeTag } from '../utils/duo.js';
+import { DynamicDuoHandholdModal } from '../components/DynamicDuo/DynamicDuoHandholdModal.js';
 import {
   Trophy,
   Swords,
@@ -19,6 +21,8 @@ import {
   Check,
   BellRing,
   Camera,
+  Shield,
+  Heart,
 } from 'lucide-react';
 
 interface DashboardScreenProps {
@@ -33,9 +37,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const { user } = useAuth();
   const { showToast } = useToast();
   const isVip = isVipUser(user);
+  const isDuo = isDuoMember(user);
+  const isBoy = isDuoBoy(user);
+  const isGirl = isDuoGirl(user);
   const [invites, setInvites] = useState<RoomInvite[]>([]);
   const [copiedCode, setCopiedCode] = useState(false);
   const [joinCodeInput, setJoinCodeInput] = useState('');
+  const [isDuoModalOpen, setIsDuoModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchInvites = async () => {
@@ -119,11 +127,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         className={`relative overflow-hidden rounded-3xl p-6 sm:p-8 shadow-xl transition-all ${
           isVip
             ? 'bg-gradient-to-br from-stone-950 via-rose-950/30 to-stone-950 border-2 border-rose-500/60 shadow-[0_0_40px_rgba(244,63,94,0.3)]'
+            : isDuo
+            ? isBoy
+              ? 'bg-gradient-to-br from-[#0a1128] via-[#101f42] to-[#080d1e] border-2 border-cyan-400/80 shadow-[0_0_45px_rgba(56,189,248,0.45)]'
+              : 'bg-gradient-to-br from-[#200918] via-[#330f26] to-[#160510] border-2 border-rose-400/80 shadow-[0_0_45px_rgba(244,63,94,0.45)]'
             : 'bg-gradient-to-br from-table-surface via-table-card to-emerald-950/30 border border-table-border'
         }`}
       >
         {isVip && (
           <div className="absolute -top-24 -left-24 w-60 h-60 bg-rose-500/20 rounded-full blur-3xl pointer-events-none animate-pulse" />
+        )}
+        {isDuo && (
+          <div
+            className={`absolute -top-24 -left-24 w-60 h-60 rounded-full blur-3xl pointer-events-none animate-pulse ${
+              isBoy ? 'bg-cyan-500/25' : 'bg-rose-500/25'
+            }`}
+          />
         )}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 relative z-10">
           <div className="flex items-center gap-4 sm:gap-6">
@@ -150,6 +169,32 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 >
                   <Camera className="w-3.5 h-3.5" />
                 </button>
+              </div>
+            ) : isDuo ? (
+              <div
+                className="relative group cursor-pointer"
+                onClick={() => {
+                  sound.playClick();
+                  setIsDuoModalOpen(true);
+                }}
+                title="Dynamic Duo • Tap to open 3D Universe"
+              >
+                <img
+                  src={user.avatarUrl}
+                  alt={user.displayName}
+                  className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 object-cover bg-stone-900 transition-transform group-hover:scale-105 ${
+                    isBoy
+                      ? 'border-cyan-300 shadow-[0_0_25px_rgba(56,189,248,0.8)]'
+                      : 'border-pink-300 shadow-[0_0_25px_rgba(244,63,94,0.8)]'
+                  }`}
+                />
+                <div
+                  className={`absolute -bottom-1 -right-1 p-1 rounded-full text-white text-xs ${
+                    isBoy ? 'bg-cyan-600 border border-cyan-300' : 'bg-rose-600 border border-pink-300'
+                  }`}
+                >
+                  {isBoy ? '🛡️' : '👑'}
+                </div>
               </div>
             ) : (
               <div className="relative group">
@@ -181,17 +226,36 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   <VipBadgeTag />
                 </div>
               )}
+              {isDuo && (
+                <div className="mb-1.5 animate-bounce">
+                  <DuoBadgeTag isBoy={isBoy} streakDays={1} />
+                </div>
+              )}
               <div className="flex items-center gap-2 mb-1">
                 <h2
                   className={`text-xl sm:text-2xl font-serif font-black ${
                     isVip
                       ? 'bg-gradient-to-r from-rose-200 via-pink-100 to-amber-200 bg-clip-text text-transparent drop-shadow'
+                      : isDuo
+                      ? isBoy
+                        ? 'bg-gradient-to-r from-cyan-200 via-sky-100 to-amber-200 bg-clip-text text-transparent drop-shadow'
+                        : 'bg-gradient-to-r from-rose-200 via-pink-100 to-amber-200 bg-clip-text text-transparent drop-shadow'
                       : 'text-ivory-100'
                   }`}
                 >
                   {user.displayName}
                 </h2>
-                <Crown className={`w-5 h-5 ${isVip ? 'text-rose-400' : 'text-gold-400'}`} />
+                {isVip ? (
+                  <Crown className="w-5 h-5 text-rose-400" />
+                ) : isDuo ? (
+                  isBoy ? (
+                    <Shield className="w-5 h-5 text-cyan-400 animate-pulse" />
+                  ) : (
+                    <Crown className="w-5 h-5 text-pink-400 animate-pulse" />
+                  )
+                ) : (
+                  <Crown className="w-5 h-5 text-gold-400" />
+                )}
               </div>
               <div className="text-xs text-stone-400 font-mono flex items-center gap-3">
                 <span>@{user.username}</span>
@@ -246,6 +310,44 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Dynamic Duo Cosmic Clasp Card (Exclusive to Ayush & Palak) */}
+      {isDuo && (
+        <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 bg-gradient-to-r from-cyan-950/70 via-purple-950/70 to-rose-950/70 border-2 border-cyan-400/50 shadow-[0_0_35px_rgba(56,189,248,0.3)] flex flex-col sm:flex-row items-center justify-between gap-5 animate-pulse">
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-2xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 shadow-md">
+              <span className="text-2xl">🤝</span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/30 border border-rose-400/50 text-pink-200">
+                  Exclusive Bond
+                </span>
+                <span className="text-xs text-amber-300 font-mono flex items-center gap-1">
+                  🔥 Streak 1 Day
+                </span>
+              </div>
+              <h3 className="text-lg font-serif font-black text-white mt-1">
+                Cosmic Dynamic Duo • Ayush & Palak
+              </h3>
+              <p className="text-xs text-cyan-200/80 mt-0.5">
+                Destiny Clasped • Hand-Hold Clasp & Ed Sheeran Song Active 💖
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              sound.playClick();
+              setIsDuoModalOpen(true);
+            }}
+            className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-gradient-to-r from-cyan-500 via-sky-500 to-rose-500 hover:from-cyan-400 hover:to-rose-400 text-white font-black text-xs shadow-[0_0_20px_rgba(56,189,248,0.5)] transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <span>Open 3D Universe (Hand-Hold Clasp)</span>
+            <Sparkles className="w-4 h-4 text-amber-200" />
+          </button>
+        </div>
+      )}
 
       {/* Room Action Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -324,6 +426,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </button>
         </div>
       </div>
+
+      {isDuoModalOpen && (
+        <DynamicDuoHandholdModal
+          isOpen={isDuoModalOpen}
+          onClose={() => setIsDuoModalOpen(false)}
+          targetUser={user}
+        />
+      )}
     </div>
   );
 };

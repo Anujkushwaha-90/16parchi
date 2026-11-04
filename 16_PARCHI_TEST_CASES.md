@@ -49,5 +49,6 @@
 
 - **Game Logic Engine**: 100% compliant with authoritative 16 Parchi specifications.
 - **State Machine**: Free of deadlock, race conditions, or memory leaks.
-- **Security & Secrets**: No exposed database credentials; all sensitive API routes protected.
+- **Security & Secrets**: No exposed database credentials; all sensitive API routes protec
+ted.
 

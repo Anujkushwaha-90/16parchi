@@ -8,6 +8,7 @@ import { GameRoom, CustomDeckConfig } from '../types/index.js';
 import { InviteFriendsModal } from '../components/Modals/InviteFriendsModal.js';
 import { UserProfileModal } from '../components/Modals/UserProfileModal.js';
 import { isVipUser } from '../utils/vip.js';
+import { isDuoMember, isDuoBoy, isDuoGirl } from '../utils/duo.js';
 import {
   Crown,
   Copy,
@@ -377,6 +378,21 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                             className="w-16 h-16 rounded-full border-2 border-rose-400 object-cover bg-stone-900 mx-auto shadow-[0_0_20px_rgba(244,63,94,0.7)] animate-heartbeat-3d"
                           />
                           <span className="absolute -top-2 -right-1 text-sm animate-bounce">💖</span>
+                        </div>
+                      ) : isDuoMember(member?.user) ? (
+                        <div className="relative">
+                          <img
+                            src={member.user?.avatarUrl || ''}
+                            alt="Player"
+                            className={`w-16 h-16 rounded-full object-cover bg-stone-900 mx-auto border-2 ${
+                              isDuoBoy(member?.user)
+                                ? 'border-cyan-300 shadow-[0_0_20px_rgba(56,189,248,0.7)]'
+                                : 'border-pink-300 shadow-[0_0_20px_rgba(244,63,94,0.7)]'
+                            }`}
+                          />
+                          <span className="absolute -top-2 -right-1 text-sm animate-bounce">
+                            {isDuoBoy(member?.user) ? '🛡️' : '👑'}
+                          </span>
                         </div>
                       ) : (
                         <img

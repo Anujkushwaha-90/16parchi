@@ -9,6 +9,7 @@ import usersRoutes from './routes/users.routes.js';
 import friendsRoutes from './routes/friends.routes.js';
 import roomsRoutes from './routes/rooms.routes.js';
 import matchesRoutes from './routes/matches.routes.js';
+import duoRoutes from './routes/duo.routes.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -33,6 +34,7 @@ app.use('/api/users', usersRoutes);
 app.use('/api/friends', friendsRoutes);
 app.use('/api/rooms', roomsRoutes);
 app.use('/api/matches', matchesRoutes);
+app.use('/api/duo', duoRoutes);
 
 // Health check endpoint
 app.get(['/health', '/api/health'], (req, res) => {
