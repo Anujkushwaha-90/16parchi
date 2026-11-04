@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext.js';
 import { useToast } from '../context/ToastContext.js';
 import { sound } from '../services/sound.js';
@@ -18,6 +18,7 @@ import {
   Upload,
   User,
   Loader2,
+  History,
 } from 'lucide-react';
 
 interface SettingsScreenProps {
@@ -44,7 +45,7 @@ const PRESET_AVATARS = [
 ];
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate }) => {
-  const { user, logout, refreshUser } = useAuth();
+  const { user, logout, refreshUser, updateUser } = useAuth();
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -58,8 +59,28 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate }) =>
   const [reducedMotion, setReducedMotion] = useState(
     localStorage.getItem('parchi_reduced_motion') === 'true'
   );
+  const [avatarHistory, setAvatarHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const isVip = isVipUser(user);
+
+  const fetchHistory = useCallback(async () => {
+    try {
+      setLoadingHistory(true);
+      const res = await api.getAvatarHistory();
+      if (res && Array.isArray(res.history)) {
+        setAvatarHistory(res.history);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch avatar history:', e);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
 
   useEffect(() => {
     if (user?.displayName) setDisplayName(user.displayName);
@@ -97,8 +118,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate }) =>
       setSelectedAvatar(avatarUrl);
 
       // Save directly to database permanently
-      await api.updateProfile(undefined, avatarUrl, source, fileSize);
+      const res = await api.updateProfile(undefined, avatarUrl, source, fileSize);
+      if (res && res.user) {
+        updateUser(res.user);
+      }
       await refreshUser();
+      await fetchHistory();
 
       sound.playClick();
       showToast('Profile photo uploaded successfully!', 'success');
@@ -316,36 +341,105 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate }) =>
 
           {/* TAB 1: Upload from Phone / PC */}
           {avatarTab === 'upload' && (
-            <div className="p-6 rounded-2xl border-2 border-dashed border-gold-500/30 hover:border-gold-400/60 bg-table-card/60 transition-all text-center space-y-3">
-              <div className="w-12 h-12 mx-auto rounded-2xl bg-gold-500/10 border border-gold-500/30 flex items-center justify-center text-gold-400">
-                <Upload className="w-6 h-6" />
+            <>
+              <div className="p-6 rounded-2xl border-2 border-dashed border-gold-500/30 hover:border-gold-400/60 bg-table-card/60 transition-all text-center space-y-3">
+                <div className="w-12 h-12 mx-auto rounded-2xl bg-gold-500/10 border border-gold-500/30 flex items-center justify-center text-gold-400">
+                  <Upload className="w-6 h-6" />
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-bold text-ivory-100">
+                    Select Any Photo from Your Phone or Computer
+                  </h4>
+                  <p className="text-xs text-stone-400 mt-1 max-w-md mx-auto">
+                    Supports PNG, JPG, JPEG, and WEBP. As soon as you select a photo, it is automatically center-cropped and saved permanently in the database.
+                  </p>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    disabled={uploadingPhoto}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gold-500 hover:bg-gold-400 text-table-dark flex items-center gap-2 shadow-gold-glow transition-all mx-auto disabled:opacity-50"
+                  >
+                    {uploadingPhoto ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Camera className="w-4 h-4" />
+                    )}
+                    <span>{uploadingPhoto ? 'Uploading & Saving...' : 'Choose Photo from Device'}</span>
+                  </button>
+                </div>
               </div>
 
-              <div>
-                <h4 className="text-sm font-bold text-ivory-100">
-                  Select Any Photo from Your Phone or Computer
-                </h4>
-                <p className="text-xs text-stone-400 mt-1 max-w-md mx-auto">
-                  Supports PNG, JPG, JPEG, and WEBP. As soon as you select a photo, it is automatically center-cropped and saved permanently in the database.
-                </p>
-              </div>
+              {/* Saved Uploads History Gallery */}
+              <div className="p-4 rounded-2xl bg-table-card/70 border border-table-border space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-stone-200 flex items-center gap-2">
+                    <History className="w-4 h-4 text-gold-400" />
+                    <span>Aapki Saved Photos (Database History)</span>
+                  </span>
+                  <span className="text-[10px] text-stone-400 font-mono bg-black/40 px-2 py-0.5 rounded-full border border-white/5">
+                    {avatarHistory.length} photo{avatarHistory.length !== 1 ? 's' : ''} saved
+                  </span>
+                </div>
 
-              <div className="pt-2">
-                <button
-                  type="button"
-                  disabled={uploadingPhoto}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gold-500 hover:bg-gold-400 text-table-dark flex items-center gap-2 shadow-gold-glow transition-all mx-auto disabled:opacity-50"
-                >
-                  {uploadingPhoto ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Camera className="w-4 h-4" />
-                  )}
-                  <span>{uploadingPhoto ? 'Uploading & Saving...' : 'Choose Photo from Device'}</span>
-                </button>
+                {loadingHistory ? (
+                  <div className="flex items-center justify-center gap-2 py-4 text-xs text-stone-400">
+                    <Loader2 className="w-4 h-4 animate-spin text-gold-400" />
+                    <span>Database se photos load ho rahi hain...</span>
+                  </div>
+                ) : avatarHistory.length === 0 ? (
+                  <div className="py-4 text-center text-xs text-stone-400 bg-black/20 rounded-xl border border-dashed border-white/10">
+                    Abhi tak koi photo upload nahi ki gayi hai. Upar wale button se upload karein!
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5 pt-1">
+                    {avatarHistory.map((item) => {
+                      const isActive = selectedAvatar === item.avatarUrl;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          disabled={uploadingPhoto}
+                          onClick={() => handleAutoSavePhoto(item.avatarUrl, 'HISTORY_RESTORE', item.fileSize)}
+                          className={`relative group rounded-xl p-1.5 border-2 transition-all flex flex-col items-center gap-1.5 text-center ${
+                            isActive
+                              ? 'border-emerald-400 bg-emerald-950/50 shadow-[0_0_15px_rgba(52,211,153,0.4)] scale-105'
+                              : 'border-white/10 hover:border-gold-400/70 bg-black/40 hover:bg-black/60'
+                          }`}
+                          title="Click to activate this photo"
+                        >
+                          <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-stone-900 border border-white/10">
+                            <img
+                              src={item.avatarUrl}
+                              alt="Uploaded"
+                              className="w-full h-full object-cover"
+                            />
+                            {isActive && (
+                              <div className="absolute inset-0 bg-emerald-500/20 flex items-center justify-center">
+                                <span className="p-1 rounded-full bg-emerald-500 text-black shadow-md">
+                                  <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="w-full">
+                            <span className={`block text-[10px] font-bold truncate ${isActive ? 'text-emerald-400' : 'text-stone-300'}`}>
+                              {isActive ? '✓ Active' : 'Tap to Use'}
+                            </span>
+                            <span className="block text-[9px] text-stone-500 font-mono truncate">
+                              {new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
+            </>
           )}
 
           {/* TAB 2: Royal Presets Gallery (16) */}
