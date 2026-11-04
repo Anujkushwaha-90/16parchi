@@ -79,9 +79,16 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onNavigate }) => {
         prev.map((f) => (f.id === userId ? { ...f, isOnline } : f))
       );
     };
+    const handleAvatarUpdate = ({ userId, avatarUrl }: { userId: string; avatarUrl: string }) => {
+      setFriends((prev) =>
+        prev.map((f) => (f.id === userId ? { ...f, avatarUrl } : f))
+      );
+    };
     socket.on('presence:update', handlePresence);
+    socket.on('user:avatar_updated', handleAvatarUpdate);
     return () => {
       socket.off('presence:update', handlePresence);
+      socket.off('user:avatar_updated', handleAvatarUpdate);
     };
   }, [socket]);
 

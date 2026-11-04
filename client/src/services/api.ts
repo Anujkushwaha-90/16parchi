@@ -35,6 +35,7 @@ class ApiService {
     }
 
     const response = await fetch(`${API_BASE}${endpoint}`, {
+      cache: 'no-store',
       ...options,
       headers,
     });

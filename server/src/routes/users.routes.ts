@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { prisma } from '../db.js';
 import { requireAuth, AuthRequest } from '../auth/middleware.js';
-import { isUserOnline } from '../sockets/presence.js';
+import { isUserOnline, broadcastUserAvatar } from '../sockets/presence.js';
 
 const router = Router();
 
@@ -157,6 +157,8 @@ router.patch('/profile', requireAuth, async (req: AuthRequest, res: Response): P
             fileSize: typeof avatarFileSize === 'number' ? avatarFileSize : null,
           },
         });
+        // Real-time broadcast to all connected players across the table and friends list
+        broadcastUserAvatar(updated.id, avatarUrl);
       } catch (logErr) {
         console.error('Failed to record avatar history:', logErr);
       }

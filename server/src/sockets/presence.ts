@@ -55,4 +55,10 @@ export const getOnlineUserIds = (): string[] => {
   return Array.from(activeOnlineUsers);
 };
 
+export const broadcastUserAvatar = (userId: string, avatarUrl: string) => {
+  if (ioInstance && userId) {
+    ioInstance.emit('user:avatar_updated', { userId, avatarUrl });
+  }
+};
+
 
