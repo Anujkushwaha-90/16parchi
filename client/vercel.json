@@ -22,7 +22,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://16parchi-api.vercel.app/api/$1"
+      "destination": "https://server-delta-wheat.vercel.app/api/$1"
     },
     {
       "source": "/__/auth/(.*)",
