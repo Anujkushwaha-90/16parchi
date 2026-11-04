@@ -96,14 +96,17 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
         }
       }
     } else {
-      // Update online status and ensure firebaseUid & avatarUrl are synced
+      // Update online status and ensure firebaseUid is synced
+      // CRITICAL: DO NOT overwrite custom avatarUrl if user already has one!
+      // Only use Google photo if user has no avatarUrl set yet.
+      const shouldSetAvatar = (!user.avatarUrl || user.avatarUrl.trim() === '') && Boolean(decoded.picture);
       user = await prisma.user.update({
         where: { id: user.id },
         data: {
           firebaseUid: decoded.uid,
           isOnline: true,
           lastSeenAt: new Date(),
-          ...(decoded.picture ? { avatarUrl: decoded.picture } : {}),
+          ...(shouldSetAvatar ? { avatarUrl: decoded.picture } : {}),
         },
       });
     }
