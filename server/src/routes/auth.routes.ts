@@ -117,10 +117,10 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
 
     // Auto-link Dynamic Duo if user is Ayush or Palak
     const userEmail = (user.email || '').toLowerCase().trim();
-    const username = (user.username || '').toLowerCase().trim();
-    const displayName = (user.displayName || '').toLowerCase().trim();
-    const isPalak = userEmail === 'palakpandey808@gmail.com' || username.includes('palak') || displayName.includes('palak');
-    const isAyush = userEmail === 'singhayush20626@gmail.com' || username.includes('ayush') || displayName.includes('ayush');
+    const cleanUsername = (user.username || '').toLowerCase().trim();
+    const cleanDisplayName = (user.displayName || '').toLowerCase().trim();
+    const isPalak = userEmail === 'palakpandey808@gmail.com' || cleanUsername.includes('palak') || cleanDisplayName.includes('palak');
+    const isAyush = userEmail === 'singhayush20626@gmail.com' || cleanUsername.includes('ayush') || cleanDisplayName.includes('ayush');
 
     if (isAyush || isPalak) {
       try {
@@ -219,10 +219,10 @@ router.post('/dev-login', async (req: Request, res: Response): Promise<void> => 
 
     // Auto-link Dynamic Duo if user is Ayush or Palak
     const userEmail = (user.email || '').toLowerCase().trim();
-    const username = (user.username || '').toLowerCase().trim();
-    const displayName = (user.displayName || '').toLowerCase().trim();
-    const isPalak = userEmail === 'palakpandey808@gmail.com' || username.includes('palak') || displayName.includes('palak');
-    const isAyush = userEmail === 'singhayush20626@gmail.com' || username.includes('ayush') || displayName.includes('ayush');
+    const cleanUsername = (user.username || '').toLowerCase().trim();
+    const cleanDisplayName = (user.displayName || '').toLowerCase().trim();
+    const isPalak = userEmail === 'palakpandey808@gmail.com' || cleanUsername.includes('palak') || cleanDisplayName.includes('palak');
+    const isAyush = userEmail === 'singhayush20626@gmail.com' || cleanUsername.includes('ayush') || cleanDisplayName.includes('ayush');
 
     if (isAyush || isPalak) {
       try {
