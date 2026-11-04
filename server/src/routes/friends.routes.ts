@@ -52,7 +52,7 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response): Promise<vo
         friendshipId: f.id,
         createdAt: f.createdAt,
         ...friendData,
-        isOnline: isUserOnline(friendData.id),
+        isOnline: isUserOnline(friendData.id, friendData.isOnline, friendData.lastSeenAt),
       };
     });
 

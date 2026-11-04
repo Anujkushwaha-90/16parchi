@@ -44,9 +44,9 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onNavigate }) => {
   const [selectedProfileUser, setSelectedProfileUser] = useState<any | null>(null);
   const [sentRequestsMap, setSentRequestsMap] = useState<Record<string, boolean>>({});
 
-  const loadData = async () => {
+  const loadData = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const [friendsRes, requestsRes] = await Promise.all([
         api.getFriends(),
         api.getFriendRequests(),
@@ -55,17 +55,22 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onNavigate }) => {
       setIncoming(requestsRes.incoming || []);
       setOutgoing(requestsRes.outgoing || []);
     } catch (e) {
-      showToast('Failed to load friends data', 'error');
+      if (!silent) showToast('Failed to load friends data', 'error');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadData();
-    const handleFocus = () => loadData();
+    const handleFocus = () => loadData(true);
     window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
+    // Real-time presence poll every 4 seconds
+    const interval = setInterval(() => loadData(true), 4000);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(interval);
+    };
   }, []);
   useEffect(() => {
     if (!socket) return;

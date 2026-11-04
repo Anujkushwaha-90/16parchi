@@ -38,13 +38,17 @@ router.get('/search', requireAuth, async (req: AuthRequest, res: Response): Prom
         avatarUrl: true,
         friendCode: true,
         isOnline: true,
+        lastSeenAt: true,
         gamesPlayed: true,
         gamesWon: true,
       },
       take: 10,
     });
 
-    const mappedUsers = users.map(u => ({ ...u, isOnline: isUserOnline(u.id) }));
+    const mappedUsers = users.map(u => ({
+      ...u,
+      isOnline: isUserOnline(u.id, u.isOnline, u.lastSeenAt),
+    }));
     res.json({ users: mappedUsers });
   } catch (err) {
     console.error('Search error:', err);
@@ -79,6 +83,7 @@ router.get('/profile/view/:identifier', async (req, res: Response): Promise<void
         avatarUrl: true,
         friendCode: true,
         isOnline: true,
+        lastSeenAt: true,
         gamesPlayed: true,
         gamesWon: true,
         secondPlaceCount: true,
@@ -101,7 +106,7 @@ router.get('/profile/view/:identifier', async (req, res: Response): Promise<void
     res.json({
       profile: {
         ...user,
-        isOnline: isUserOnline(user.id),
+        isOnline: isUserOnline(user.id, user.isOnline, user.lastSeenAt),
         winRate,
       },
     });
