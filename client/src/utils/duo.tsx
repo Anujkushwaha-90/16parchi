@@ -46,6 +46,8 @@ export const isDuoGirl = (u?: DuoUserLike | null): boolean => {
   return (
     email === DUO_GIRL_EMAIL ||
     username === 'palakpandey' ||
+    username === 'palak' ||
+    username.includes('palak') ||
     displayName === 'palak pandey' ||
     displayName.includes('palak')
   );

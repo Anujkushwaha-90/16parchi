@@ -117,17 +117,16 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
 
     // Auto-link Dynamic Duo if user is Ayush or Palak
     const userEmail = (user.email || '').toLowerCase().trim();
-    if (userEmail === 'singhayush20626@gmail.com' || userEmail === 'palakpandey808@gmail.com') {
+    const username = (user.username || '').toLowerCase().trim();
+    const displayName = (user.displayName || '').toLowerCase().trim();
+    const isPalak = userEmail === 'palakpandey808@gmail.com' || username.includes('palak') || displayName.includes('palak');
+    const isAyush = userEmail === 'singhayush20626@gmail.com' || username.includes('ayush') || displayName.includes('ayush');
+
+    if (isAyush || isPalak) {
       try {
         await prisma.dynamicDuo.updateMany({
-          where: {
-            OR: [
-              { userAEmail: userEmail },
-              { userBEmail: userEmail },
-            ],
-          },
           data: {
-            ...(userEmail === 'singhayush20626@gmail.com' ? { userAId: user.id } : { userBId: user.id }),
+            ...(isAyush ? { userAId: user.id } : { userBId: user.id }),
           },
         });
       } catch {}
@@ -219,17 +218,16 @@ router.post('/dev-login', async (req: Request, res: Response): Promise<void> => 
 
     // Auto-link Dynamic Duo if user is Ayush or Palak
     const userEmail = (user.email || '').toLowerCase().trim();
-    if (userEmail === 'singhayush20626@gmail.com' || userEmail === 'palakpandey808@gmail.com') {
+    const username = (user.username || '').toLowerCase().trim();
+    const displayName = (user.displayName || '').toLowerCase().trim();
+    const isPalak = userEmail === 'palakpandey808@gmail.com' || username.includes('palak') || displayName.includes('palak');
+    const isAyush = userEmail === 'singhayush20626@gmail.com' || username.includes('ayush') || displayName.includes('ayush');
+
+    if (isAyush || isPalak) {
       try {
         await prisma.dynamicDuo.updateMany({
-          where: {
-            OR: [
-              { userAEmail: userEmail },
-              { userBEmail: userEmail },
-            ],
-          },
           data: {
-            ...(userEmail === 'singhayush20626@gmail.com' ? { userAId: user.id } : { userBId: user.id }),
+            ...(isAyush ? { userAId: user.id } : { userBId: user.id }),
           },
         });
       } catch {}
