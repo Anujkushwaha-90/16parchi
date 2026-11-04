@@ -97,16 +97,34 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
       }
     } else {
       // Update online status and ensure firebaseUid is synced
-      // CRITICAL: DO NOT overwrite custom avatarUrl if user already has one!
-      // Only use Google photo if user has no avatarUrl set yet.
-      const shouldSetAvatar = (!user.avatarUrl || user.avatarUrl.trim() === '') && Boolean(decoded.picture);
+      // CRITICAL: NEVER overwrite custom uploaded avatar!
+      // If user has ever uploaded a custom avatar in avatarHistory, ALWAYS preserve it.
+      let avatarToSet = user.avatarUrl;
+      try {
+        const latestCustomAvatar = await prisma.avatarHistory.findFirst({
+          where: { userId: user.id },
+          orderBy: { createdAt: 'desc' },
+          select: { avatarUrl: true },
+        });
+        if (latestCustomAvatar && latestCustomAvatar.avatarUrl) {
+          avatarToSet = latestCustomAvatar.avatarUrl;
+        } else if (!user.avatarUrl || user.avatarUrl.trim() === '') {
+          avatarToSet = decoded.picture || user.avatarUrl;
+        }
+      } catch (e) {
+        // Fallback: keep existing avatarUrl unless empty
+        if (!user.avatarUrl || user.avatarUrl.trim() === '') {
+          avatarToSet = decoded.picture || user.avatarUrl;
+        }
+      }
+
       user = await prisma.user.update({
         where: { id: user.id },
         data: {
           firebaseUid: decoded.uid,
           isOnline: true,
           lastSeenAt: new Date(),
-          ...(shouldSetAvatar ? { avatarUrl: decoded.picture } : {}),
+          avatarUrl: avatarToSet,
         },
       });
     }
