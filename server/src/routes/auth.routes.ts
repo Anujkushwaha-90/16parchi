@@ -117,10 +117,10 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
 
     // Auto-link Dynamic Duo if user is Ayush or Palak
     const userEmail = (user.email || '').toLowerCase().trim();
-    const cleanUsername = (user.username || '').toLowerCase().trim();
-    const cleanDisplayName = (user.displayName || '').toLowerCase().trim();
-    const isPalak = userEmail === 'palakpandey808@gmail.com' || cleanUsername.includes('palak') || cleanDisplayName.includes('palak');
-    const isAyush = userEmail === 'singhayush20626@gmail.com' || cleanUsername.includes('ayush') || cleanDisplayName.includes('ayush');
+    const uName = (user.username || '').toLowerCase().trim();
+    const dName = (user.displayName || '').toLowerCase().trim();
+    const isPalak = userEmail === 'palakpandey808@gmail.com' || uName.includes('palak') || dName.includes('palak');
+    const isAyush = userEmail === 'singhayush20626@gmail.com' || uName.includes('ayush') || dName.includes('ayush');
 
     if (isAyush || isPalak) {
       try {
@@ -219,10 +219,10 @@ router.post('/dev-login', async (req: Request, res: Response): Promise<void> => 
 
     // Auto-link Dynamic Duo if user is Ayush or Palak
     const userEmail = (user.email || '').toLowerCase().trim();
-    const cleanUsername = (user.username || '').toLowerCase().trim();
-    const cleanDisplayName = (user.displayName || '').toLowerCase().trim();
-    const isPalak = userEmail === 'palakpandey808@gmail.com' || cleanUsername.includes('palak') || cleanDisplayName.includes('palak');
-    const isAyush = userEmail === 'singhayush20626@gmail.com' || cleanUsername.includes('ayush') || cleanDisplayName.includes('ayush');
+    const uName = (user.username || '').toLowerCase().trim();
+    const dName = (user.displayName || '').toLowerCase().trim();
+    const isPalak = userEmail === 'palakpandey808@gmail.com' || uName.includes('palak') || dName.includes('palak');
+    const isAyush = userEmail === 'singhayush20626@gmail.com' || uName.includes('ayush') || dName.includes('ayush');
 
     if (isAyush || isPalak) {
       try {
