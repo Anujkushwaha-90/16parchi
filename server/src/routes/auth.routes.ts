@@ -125,6 +125,7 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
     if (isAyush || isPalak) {
       try {
         await prisma.dynamicDuo.updateMany({
+          where: {},
           data: {
             ...(isAyush ? { userAId: user.id } : { userBId: user.id }),
           },
@@ -226,6 +227,7 @@ router.post('/dev-login', async (req: Request, res: Response): Promise<void> => 
     if (isAyush || isPalak) {
       try {
         await prisma.dynamicDuo.updateMany({
+          where: {},
           data: {
             ...(isAyush ? { userAId: user.id } : { userBId: user.id }),
           },
