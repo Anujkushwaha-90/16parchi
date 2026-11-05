@@ -97,34 +97,14 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
       }
     } else {
       // Update online status and ensure firebaseUid is synced
-      // CRITICAL: NEVER overwrite custom uploaded avatar!
-      // If user has ever uploaded a custom avatar in avatarHistory, ALWAYS preserve it.
-      let avatarToSet = user.avatarUrl;
-      try {
-        const latestCustomAvatar = await prisma.avatarHistory.findFirst({
-          where: { userId: user.id },
-          orderBy: { createdAt: 'desc' },
-          select: { avatarUrl: true },
-        });
-        if (latestCustomAvatar && latestCustomAvatar.avatarUrl) {
-          avatarToSet = latestCustomAvatar.avatarUrl;
-        } else if (!user.avatarUrl || user.avatarUrl.trim() === '') {
-          avatarToSet = decoded.picture || user.avatarUrl;
-        }
-      } catch (e) {
-        // Fallback: keep existing avatarUrl unless empty
-        if (!user.avatarUrl || user.avatarUrl.trim() === '') {
-          avatarToSet = decoded.picture || user.avatarUrl;
-        }
-      }
-
+      // CRITICAL: NEVER touch or modify avatarUrl on login for existing users!
+      // This guarantees custom uploaded photos are 100% permanent and immune to any Google login overrides.
       user = await prisma.user.update({
         where: { id: user.id },
         data: {
           firebaseUid: decoded.uid,
           isOnline: true,
           lastSeenAt: new Date(),
-          avatarUrl: avatarToSet,
         },
       });
     }

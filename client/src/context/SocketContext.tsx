@@ -152,6 +152,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       showToast('Host returned game to lobby.', 'info');
     });
 
+    s.on('friend:request_received', (data: any) => {
+      showToast(`New friend request from ${data?.user?.displayName || 'a player'}!`, 'info');
+      try { sound.playTick(); } catch {}
+    });
+
     setSocket(s);
 
     return () => {

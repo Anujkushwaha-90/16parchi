@@ -2,7 +2,7 @@ import { Server } from 'socket.io';
 
 /**
  * Real-time User Presence Tracker
- * Powered by active Socket.IO connection rooms for 100% authoritative accuracy
+ * Authoritative tracking across Socket.IO connections & serverless HTTP activity
  */
 
 let ioInstance: Server | null = null;
@@ -19,19 +19,27 @@ export const isUserOnline = (
 ): boolean => {
   if (!userId) return false;
 
-  // 1. In-memory Socket.IO connection check (for stateful servers)
+  // 1. In-memory Socket.IO connection check (authoritative if socket is actively connected)
   if (ioInstance) {
     const room = ioInstance.sockets.adapter.rooms.get(`user:${userId}`);
     if (room && room.size > 0) return true;
   }
   if (activeOnlineUsers.has(userId)) return true;
 
-  // 2. Database heartbeat fallback (essential for serverless & cross-instance deployments)
+  // 2. Authoritative Activity Check: If user was active within the last 3 minutes (180,000 ms),
+  // they are definitively online in the app
+  if (lastSeenAt) {
+    const diffMs = Date.now() - new Date(lastSeenAt).getTime();
+    if (diffMs < 3 * 60 * 1000) {
+      return true;
+    }
+  }
+
+  // 3. Database flag fallback: If marked online in DB and within 10 minutes
   if (dbIsOnline) {
     if (!lastSeenAt) return true;
     const diffMs = Date.now() - new Date(lastSeenAt).getTime();
-    // User is considered online if active within the last 5 minutes (300,000 ms)
-    if (diffMs < 5 * 60 * 1000) {
+    if (diffMs < 10 * 60 * 1000) {
       return true;
     }
   }
@@ -61,4 +69,14 @@ export const broadcastUserAvatar = (userId: string, avatarUrl: string) => {
   }
 };
 
+export const sendToUser = (userId: string, event: string, data: any) => {
+  if (ioInstance && userId) {
+    ioInstance.to(`user:${userId}`).emit(event, data);
+  }
+};
 
+export const broadcastPresence = (userId: string, isOnline: boolean) => {
+  if (ioInstance && userId) {
+    ioInstance.emit('presence:update', { userId, isOnline });
+  }
+};

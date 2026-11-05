@@ -6,6 +6,7 @@ interface CardProps {
   card: ParchiCard;
   isSelected?: boolean;
   isPassing?: boolean;
+  isJustReceived?: boolean;
   onClick?: () => void;
   disabled?: boolean;
   small?: boolean;
@@ -15,6 +16,7 @@ export const Card: React.FC<CardProps> = ({
   card,
   isSelected = false,
   isPassing = false,
+  isJustReceived = false,
   onClick,
   disabled = false,
   small = false,
@@ -61,6 +63,11 @@ export const Card: React.FC<CardProps> = ({
       }}
     >
       {/* Decorative Golden Corner Flourishes */}
+      {isJustReceived && (
+        <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[8px] sm:text-[9px] font-black uppercase tracking-wider rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-stone-900 shadow-md border border-white z-10 whitespace-nowrap">
+          Just In
+        </span>
+      )}
       <div className="absolute top-1.5 left-1.5 w-2.5 h-2.5 border-t border-l border-amber-700/40 rounded-tl" />
       <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 border-t border-r border-amber-700/40 rounded-tr" />
       <div className="absolute bottom-1.5 left-1.5 w-2.5 h-2.5 border-b border-l border-amber-700/40 rounded-bl" />

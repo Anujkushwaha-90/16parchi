@@ -247,6 +247,17 @@ export class ParchiGame {
       return { success: false, error: 'Selected parchi is not in your hand.' };
     }
 
+    // Strict Anti-Bounce Rule: You cannot immediately pass back the parchi you just received if you have other cards
+    if (
+      currentSeat.lastReceivedCardId === cardId &&
+      currentSeat.hand.some((c) => c.id !== cardId)
+    ) {
+      return {
+        success: false,
+        error: 'Anti-bounce rule: You cannot pass back the parchi you just received! Choose another parchi.',
+      };
+    }
+
     const targetSeatIndex = this.getNextActiveSeat(this.activeSeat);
     const targetSeat = this.seats[targetSeatIndex];
 
@@ -747,6 +758,7 @@ export class ParchiGame {
       canPass,
       canDeclare,
       isMyTurn,
+      lastReceivedCardId: seat.lastReceivedCardId || null,
     };
   }
 

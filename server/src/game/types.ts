@@ -105,4 +105,5 @@ export interface PrivatePlayerState extends PublicGameState {
   canPass: boolean;
   canDeclare: boolean;
   isMyTurn: boolean;
+  lastReceivedCardId?: string | null;
 }

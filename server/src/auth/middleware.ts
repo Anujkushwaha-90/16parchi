@@ -56,5 +56,12 @@ export async function requireAuth(
   }
 
   req.user = user;
+
+  // Non-blocking background touch of lastSeenAt & isOnline to keep presence fresh across all API calls
+  prisma.user.update({
+    where: { id: user.id },
+    data: { isOnline: true, lastSeenAt: new Date() },
+  }).catch(() => {});
+
   next();
 }

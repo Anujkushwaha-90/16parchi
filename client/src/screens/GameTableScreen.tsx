@@ -107,6 +107,14 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
 
   const handlePassCard = () => {
     if (!selectedCardId || !isMyTurn) return;
+    if (
+      privateState.lastReceivedCardId &&
+      selectedCardId === privateState.lastReceivedCardId &&
+      privateState.myHand.some((c) => c.id !== selectedCardId)
+    ) {
+      showToast('⚠️ Cannot return the parchi you just received! Select another parchi to pass.', 'error');
+      return;
+    }
     setPassingCardId(selectedCardId);
     passCard(selectedCardId);
     setSelectedCardId(null);
@@ -394,6 +402,7 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
             {privateState.myHand.map((card) => {
               const isSelected = selectedCardId === card.id;
               const isPassing = passingCardId === card.id;
+              const isJustReceived = privateState.lastReceivedCardId === card.id;
 
               return (
                 <Card
@@ -401,6 +410,7 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
                   card={card}
                   isSelected={isSelected}
                   isPassing={isPassing}
+                  isJustReceived={isJustReceived}
                   onClick={() => handleSelectCard(card)}
                   disabled={!isMyTurn || mySeat.finishedRank !== null}
                 />
@@ -424,14 +434,18 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
                   <Send className="w-4 h-4 shrink-0" />
                   <span>
                     {selectedCardId ? (
-                      <>
-                        <span className="sm:hidden">
-                          Pass to {passTargetSeat ? passTargetSeat.displayName.split(' ')[0] : 'Next'} ({publicState.timeRemaining}s)
-                        </span>
-                        <span className="hidden sm:inline">
-                          Pass Selected Slip to {passTargetSeat ? passTargetSeat.displayName : 'Next Player'} ({publicState.timeRemaining}s)
-                        </span>
-                      </>
+                      selectedCardId === privateState.lastReceivedCardId && privateState.myHand.some((c) => c.id !== selectedCardId) ? (
+                        <span className="text-amber-200">⚠️ Just Received — Please pick another parchi</span>
+                      ) : (
+                        <>
+                          <span className="sm:hidden">
+                            Pass to {passTargetSeat ? passTargetSeat.displayName.split(' ')[0] : 'Next'} ({publicState.timeRemaining}s)
+                          </span>
+                          <span className="hidden sm:inline">
+                            Pass Selected Slip to {passTargetSeat ? passTargetSeat.displayName : 'Next Player'} ({publicState.timeRemaining}s)
+                          </span>
+                        </>
+                      )
                     ) : (
                       <>
                         <span className="sm:hidden">👆 Tap a parchi above to pass</span>

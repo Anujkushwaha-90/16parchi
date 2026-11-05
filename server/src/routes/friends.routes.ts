@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { prisma } from '../db.js';
 import { requireAuth, AuthRequest } from '../auth/middleware.js';
-import { isUserOnline } from '../sockets/presence.js';
+import { isUserOnline, sendToUser } from '../sockets/presence.js';
 
 const router = Router();
 
@@ -192,6 +192,12 @@ router.post('/request', requireAuth, async (req: AuthRequest, res: Response): Pr
             },
           }),
         ]);
+        sendToUser(targetUser.id, 'friend:request_accepted', {
+          friend: req.user,
+        });
+        sendToUser(senderId, 'friend:request_accepted', {
+          friend: targetUser,
+        });
         res.json({ success: true, message: 'Mutual request found! Friendship established.' });
         return;
       }
@@ -204,6 +210,19 @@ router.post('/request', requireAuth, async (req: AuthRequest, res: Response): Pr
         senderId,
         receiverId: targetUser.id,
         status: 'PENDING',
+      },
+    });
+
+    // Real-time instant notification directly to recipient's socket room
+    sendToUser(targetUser.id, 'friend:request_received', {
+      id: newRequest.id,
+      createdAt: newRequest.createdAt,
+      user: {
+        id: req.user!.id,
+        username: req.user!.username,
+        displayName: req.user!.displayName,
+        avatarUrl: req.user!.avatarUrl,
+        friendCode: req.user!.friendCode,
       },
     });
 
@@ -243,6 +262,14 @@ router.post('/request/:id/accept', requireAuth, async (req: AuthRequest, res: Re
         },
       }),
     ]);
+
+    // Instant real-time notifications to both friends
+    sendToUser(request.senderId, 'friend:request_accepted', {
+      friend: req.user,
+    });
+    sendToUser(request.receiverId, 'friend:request_accepted', {
+      friend: { id: request.senderId },
+    });
 
     res.json({ success: true, message: 'Friend request accepted!' });
   } catch (err) {

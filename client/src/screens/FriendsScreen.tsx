@@ -86,9 +86,27 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onNavigate }) => {
     };
     socket.on('presence:update', handlePresence);
     socket.on('user:avatar_updated', handleAvatarUpdate);
+
+    // Instant real-time friend request arrival and acceptance
+    const handleFriendRequest = (data: any) => {
+      loadData(true);
+      showToast(`New friend request from ${data?.user?.displayName || 'a player'}!`, 'info');
+      try { sound.playTick(); } catch {}
+    };
+    const handleFriendAccepted = (data: any) => {
+      loadData(true);
+      showToast(`Friend request accepted by ${data?.friend?.displayName || 'player'}!`, 'success');
+      try { confetti({ particleCount: 50, spread: 60 }); } catch {}
+    };
+
+    socket.on('friend:request_received', handleFriendRequest);
+    socket.on('friend:request_accepted', handleFriendAccepted);
+
     return () => {
       socket.off('presence:update', handlePresence);
       socket.off('user:avatar_updated', handleAvatarUpdate);
+      socket.off('friend:request_received', handleFriendRequest);
+      socket.off('friend:request_accepted', handleFriendAccepted);
     };
   }, [socket]);
 

@@ -94,7 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    // Periodic 30-second heartbeat to keep online presence active in database
+    // Periodic 15-second heartbeat to keep online presence actively refreshed in database
     const heartbeatTimer = setInterval(() => {
       if (api.getToken()) {
         api.getMe().then((res) => {
@@ -103,7 +103,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }).catch(() => {});
       }
-    }, 30000);
+    }, 15000);
 
     return () => {
       isMounted = false;

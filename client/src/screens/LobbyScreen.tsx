@@ -38,7 +38,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   onLeaveLobby,
 }) => {
   const { user } = useAuth();
-  const { joinRoomSocket, publicState } = useGameSocket();
+  const { socket, joinRoomSocket, publicState } = useGameSocket();
   const { showToast } = useToast();
 
   const [room, setRoom] = useState<GameRoom | null>(null);
@@ -73,9 +73,40 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
   useEffect(() => {
     fetchRoom();
-    const interval = setInterval(fetchRoom, 2500);
+    const interval = setInterval(fetchRoom, 1200);
     return () => clearInterval(interval);
   }, [roomCode]);
+
+  // Real-time socket events for instantaneous room joins and updates
+  useEffect(() => {
+    if (!socket) return;
+    const handleLobbyUpdate = (updatedRoom: any) => {
+      if (updatedRoom && (updatedRoom.code === roomCode || updatedRoom.id === room?.id)) {
+        setRoom(updatedRoom);
+        if (updatedRoom.status === 'IN_GAME') {
+          onMatchStarted();
+        }
+      } else {
+        fetchRoom();
+      }
+    };
+    const handleMemberJoined = (updatedRoom: any) => {
+      if (updatedRoom && (updatedRoom.code === roomCode || updatedRoom.id === room?.id)) {
+        setRoom(updatedRoom);
+        try { sound.playTick(); } catch {}
+      } else {
+        fetchRoom();
+      }
+    };
+
+    socket.on('lobby:memberJoined', handleMemberJoined);
+    socket.on('lobby:update', handleLobbyUpdate);
+
+    return () => {
+      socket.off('lobby:memberJoined', handleMemberJoined);
+      socket.off('lobby:update', handleLobbyUpdate);
+    };
+  }, [socket, roomCode, room?.id]);
 
   // When socket announces match is active, transition to Game Table
   useEffect(() => {
