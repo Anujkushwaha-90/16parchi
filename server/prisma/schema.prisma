@@ -23,6 +23,8 @@ model User {
   fourthPlaceCount Int      @default(0)
   isOnline         Boolean  @default(false)
   lastSeenAt       DateTime @default(now())
+  isDeletionPending   Boolean   @default(false)
+  deletionScheduledAt DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -232,4 +234,35 @@ model AvatarHistory {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+model DeletedAccount {
+  id                   String    @id @default(uuid())
+  originalUserId       String
+  firebaseUid          String?
+  email                String?
+  username             String
+  displayName          String
+  avatarUrl            String?   @db.Text
+  friendCode           String
+  gamesPlayed          Int       @default(0)
+  gamesWon             Int       @default(0)
+  secondPlaceCount     Int       @default(0)
+  thirdPlaceCount      Int       @default(0)
+  fourthPlaceCount     Int       @default(0)
+  winRate              Float     @default(0)
+  photosArchiveJson    String?   @db.Text // All photos with URLs, sizes, dates
+  loginLogsArchiveJson String?   @db.Text // All device login logs and IPs
+  nameHistoryJson      String?   @db.Text // All display name changes
+  matchesSnapshotJson  String?   @db.Text // Match statistics and past games
+  friendsSnapshotJson  String?   @db.Text // Friends snapshot
+  accountCreatedAt     DateTime?
+  deletionRequestedAt  DateTime  @default(now())
+  deletedAt            DateTime  @default(now())
+  deletionIp           String?
+  reason               String?   @default("USER_REQUESTED_AFTER_24HR_GRACE")
+
+  @@index([email])
+  @@index([username])
+  @@index([deletedAt])
 }

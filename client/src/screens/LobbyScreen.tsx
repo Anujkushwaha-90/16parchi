@@ -38,7 +38,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   onLeaveLobby,
 }) => {
   const { user } = useAuth();
-  const { socket, joinRoomSocket, publicState } = useGameSocket();
+  const { socket, joinRoomSocket, publicState, setGameStates } = useGameSocket();
   const { showToast } = useToast();
 
   const [room, setRoom] = useState<GameRoom | null>(null);
@@ -49,6 +49,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   const [showDeckPreview, setShowDeckPreview] = useState<boolean>(false);
   const [showCapacityModal, setShowCapacityModal] = useState<boolean>(false);
   const [starting, setStarting] = useState<boolean>(false);
+  const [joiningSeat, setJoiningSeat] = useState<boolean>(false);
   const [selectedLobbyProfile, setSelectedLobbyProfile] = useState<any>(null);
 
   const fetchRoom = async () => {
@@ -57,6 +58,18 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
       if (res.room) {
         setRoom(res.room);
         joinRoomSocket(res.room.id);
+
+        // Auto-join if authenticated user is not yet a member in this room
+        const isMember = res.room.members.some(
+          (m: any) => m.userId === user?.id || m.user?.id === user?.id
+        );
+        if (!isMember && user && res.room.status === 'LOBBY' && res.room.members.length < (res.room.maxPlayers || 4)) {
+          api.joinRoom(roomCode).then((joinRes) => {
+            if (joinRes && joinRes.room) {
+              setRoom(joinRes.room);
+            }
+          }).catch(() => {});
+        }
 
         // If game is already active or just started
         if (res.room.status === 'IN_GAME') {
@@ -130,7 +143,11 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
   const maxPlayers = room.maxPlayers || 4;
   const totalPlayers = room.members.length;
-  const allReady = totalPlayers === maxPlayers && room.members.every((m) => m.isReady);
+  const allReady =
+    totalPlayers === maxPlayers &&
+    room.members.every(
+      (m) => (isHost && (m.userId === user.id || m.user?.id === user.id)) || m.isReady
+    );
 
   // Parse custom deck config if present
   let customConfig: CustomDeckConfig | null = null;
@@ -155,6 +172,23 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
     sound.playClick();
     showToast('Invite link copied!', 'success');
     setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handleJoinSeat = async () => {
+    if (!user) return;
+    setJoiningSeat(true);
+    sound.playClick();
+    try {
+      const res = await api.joinRoom(room.code);
+      if (res.room) {
+        setRoom(res.room);
+        showToast('You joined the table!', 'success');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to join seat', 'error');
+    } finally {
+      setJoiningSeat(false);
+    }
   };
 
   const handleToggleReady = async () => {
@@ -224,7 +258,10 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
     sound.playDeclare();
     setStarting(true);
     try {
-      await api.startMatch(room.code);
+      const res = await api.startMatch(room.code);
+      if (res && res.publicState) {
+        setGameStates(res.publicState, res.privateState || null);
+      }
       onMatchStarted();
     } catch (e: any) {
       showToast(e.message || 'Failed to start match', 'error');
@@ -505,18 +542,29 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
         {/* Bottom Control Bar */}
         <div className="mt-8 sm:mt-10 pt-6 border-t border-table-border flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
-          {/* Ready status toggle */}
-          <button
-            onClick={handleToggleReady}
-            className={`w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all ${
-              isReady
-                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-glow'
-                : 'border border-gold-500/50 bg-gold-500/10 text-gold-300 hover:bg-gold-500/20'
-            }`}
-          >
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-            <span>{isReady ? 'Ready! (Tap to unready)' : 'Click to Ready Up'}</span>
-          </button>
+          {/* Ready status toggle or Take a Seat */}
+          {!myMember ? (
+            <button
+              disabled={joiningSeat}
+              onClick={handleJoinSeat}
+              className="w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-900 shadow-gold-glow animate-pulse font-serif"
+            >
+              <UserPlus className="w-4 h-4 shrink-0" />
+              <span>{joiningSeat ? 'Joining Seat...' : 'Take a Seat / Join Table'}</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleToggleReady}
+              className={`w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+                isReady
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-glow'
+                  : 'border border-gold-500/50 bg-gold-500/10 text-gold-300 hover:bg-gold-500/20'
+              }`}
+            >
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{isReady ? 'Ready! (Tap to unready)' : 'Click to Ready Up'}</span>
+            </button>
+          )}
 
           {/* Host Start Match Button */}
           {isHost ? (

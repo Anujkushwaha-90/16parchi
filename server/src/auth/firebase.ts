@@ -37,19 +37,20 @@ export interface DecodedAuthToken {
 export async function verifyAuthToken(token: string): Promise<DecodedAuthToken | null> {
   if (!token) return null;
 
-  // 1. Try Firebase Admin if initialized with credentials
-  if (firebaseInitialized) {
-    try {
-      const decoded = await admin.auth().verifyIdToken(token);
+  // 1. FAST PATH: Instant in-memory verification for backend session tokens (0.01ms)
+  // Eliminates 500-1500ms network roundtrips on every single API call
+  try {
+    const decoded = jwt.verify(token, CONFIG.JWT_SECRET) as any;
+    if (decoded && (decoded.uid || decoded.userId)) {
       return {
-        uid: decoded.uid,
+        uid: decoded.uid || decoded.userId,
         email: decoded.email,
-        name: decoded.name || (decoded as any).displayName,
+        name: decoded.name,
         picture: decoded.picture,
       };
-    } catch (err) {
-      // If Admin SDK verification fails, continue to resilient checks
     }
+  } catch (jwtErr) {
+    // Not a local session token, proceed to Firebase token checks
   }
 
   // 2. Decode and verify Firebase Google ID Token (Works in cloud / serverless without service account file)
@@ -84,19 +85,19 @@ export async function verifyAuthToken(token: string): Promise<DecodedAuthToken |
     // Continue
   }
 
-  // 3. Fallback / Dev token verification using JWT_SECRET
-  try {
-    const decoded = jwt.verify(token, CONFIG.JWT_SECRET) as any;
-    if (decoded && (decoded.uid || decoded.userId)) {
+  // 3. Fallback to Firebase Admin SDK if initialized with credentials
+  if (firebaseInitialized) {
+    try {
+      const decoded = await admin.auth().verifyIdToken(token);
       return {
-        uid: decoded.uid || decoded.userId,
+        uid: decoded.uid,
         email: decoded.email,
-        name: decoded.name,
+        name: decoded.name || (decoded as any).displayName,
         picture: decoded.picture,
       };
+    } catch (err) {
+      // Failed
     }
-  } catch (jwtErr) {
-    // Invalid token
   }
 
   return null;

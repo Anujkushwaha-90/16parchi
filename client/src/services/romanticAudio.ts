@@ -12,6 +12,7 @@ class RomanticAudioService {
   private haareyaAudio: HTMLAudioElement | null = null;
   private isHaareyaPlaying: boolean = false;
   private isSongMuted: boolean = false;
+  private onHaareyaStateChange?: (isPlaying: boolean) => void;
 
   constructor() {
     // Sound is strictly muted by default for general synthesizer
@@ -19,32 +20,61 @@ class RomanticAudioService {
     this.isMuted = saved !== null ? saved === 'true' : true;
   }
 
+  public setHaareyaCallback(cb: (isPlaying: boolean) => void) {
+    this.onHaareyaStateChange = cb;
+  }
+
+  private getOrCreateHaareyaAudio(): HTMLAudioElement {
+    if (!this.haareyaAudio) {
+      this.haareyaAudio = new Audio('/audio/haareya.mp3');
+      this.haareyaAudio.loop = true;
+      this.haareyaAudio.preload = 'auto';
+      this.haareyaAudio.volume = 0.70;
+
+      this.haareyaAudio.addEventListener('playing', () => {
+        this.isHaareyaPlaying = true;
+        this.onHaareyaStateChange?.(true);
+      });
+      this.haareyaAudio.addEventListener('pause', () => {
+        this.isHaareyaPlaying = false;
+        this.onHaareyaStateChange?.(false);
+      });
+      this.haareyaAudio.addEventListener('error', (e) => {
+        console.warn('Haareya audio playback error:', e);
+        this.isHaareyaPlaying = false;
+        this.onHaareyaStateChange?.(false);
+      });
+    }
+    return this.haareyaAudio;
+  }
+
   /**
    * Play Haareya romantic song softly for VIP Sovereign profile
    */
-  public playHaareya() {
+  public playHaareya(forceRestart = false) {
     if (this.isSongMuted) return;
     try {
-      if (!this.haareyaAudio) {
-        this.haareyaAudio = new Audio('/audio/haareya.mp3');
-        this.haareyaAudio.loop = true;
-        this.haareyaAudio.preload = 'auto';
+      const audio = this.getOrCreateHaareyaAudio();
+      audio.volume = 0.70;
+      if (forceRestart) {
+        audio.currentTime = 0;
       }
-      this.haareyaAudio.volume = 0.45;
-      this.haareyaAudio.currentTime = 0;
-      const playPromise = this.haareyaAudio.play();
+      const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise
           .then(() => {
             this.isHaareyaPlaying = true;
+            this.onHaareyaStateChange?.(true);
           })
           .catch(() => {
-            // Autoplay restriction fallback; wait for next user touch/click
+            // Autoplay policy blocked; user gesture will start it on tap
             this.isHaareyaPlaying = false;
+            this.onHaareyaStateChange?.(false);
           });
       }
     } catch {
-      // Audio playback silent fallback
+      this.isHaareyaPlaying = false;
+      this.onHaareyaStateChange?.(false);
     }
   }
 
@@ -59,22 +89,23 @@ class RomanticAudioService {
       } catch {}
     }
     this.isHaareyaPlaying = false;
+    this.onHaareyaStateChange?.(false);
   }
 
   /**
    * Toggle Haareya song play/pause
    */
   public toggleHaareya(): boolean {
-    if (this.isHaareyaPlaying) {
-      if (this.haareyaAudio) {
-        this.haareyaAudio.pause();
-      }
+    const audio = this.getOrCreateHaareyaAudio();
+    if (this.isHaareyaPlaying || (!audio.paused && audio.currentTime > 0)) {
+      audio.pause();
       this.isHaareyaPlaying = false;
       this.isSongMuted = true;
+      this.onHaareyaStateChange?.(false);
       return false;
     } else {
       this.isSongMuted = false;
-      this.playHaareya();
+      this.playHaareya(false);
       return true;
     }
   }

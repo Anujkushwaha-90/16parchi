@@ -280,15 +280,46 @@ router.post('/:code/join', requireAuth, async (req: AuthRequest, res: Response):
       }
     }
 
-    await prisma.roomMember.create({
-      data: {
-        roomId: room.id,
-        userId,
-        seatIndex: assignedSeat,
-        isReady: false,
-        isBot: false,
-      },
-    });
+    try {
+      await prisma.roomMember.create({
+        data: {
+          roomId: room.id,
+          userId,
+          seatIndex: assignedSeat,
+          isReady: false,
+          isBot: false,
+        },
+      });
+    } catch (createErr: any) {
+      if (createErr.code === 'P2002') {
+        // Seat was taken in a race condition, pick the next available seat
+        const freshMembers = await prisma.roomMember.findMany({ where: { roomId: room.id } });
+        const freshOccupied = new Set(freshMembers.map((m) => m.seatIndex));
+        let retrySeat = -1;
+        for (let i = 0; i < maxPlayers; i++) {
+          if (!freshOccupied.has(i)) {
+            retrySeat = i;
+            break;
+          }
+        }
+        if (retrySeat !== -1) {
+          await prisma.roomMember.create({
+            data: {
+              roomId: room.id,
+              userId,
+              seatIndex: retrySeat,
+              isReady: false,
+              isBot: false,
+            },
+          });
+        } else {
+          res.status(400).json({ error: `Room is full (Maximum ${maxPlayers} players).` });
+          return;
+        }
+      } else {
+        throw createErr;
+      }
+    }
 
     const updatedRoom = await prisma.gameRoom.findUnique({
       where: { id: room.id },
@@ -505,6 +536,9 @@ router.post('/:code/leave', requireAuth, async (req: AuthRequest, res: Response)
       });
     }
 
+    // Instantly notify all remaining players that a seat has been freed
+    GameManager.getInstance().broadcastToRoom(room.id, 'lobby:update');
+
     res.json({ success: true, message: 'Left room successfully' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to leave room' });
@@ -543,7 +577,15 @@ router.post('/:code/start', requireAuth, async (req: AuthRequest, res: Response)
       return;
     }
 
-    const notReady = room.members.some((m) => !m.isReady);
+    // Host is actively starting the match, auto-mark host as ready
+    await prisma.roomMember.updateMany({
+      where: { roomId: room.id, userId },
+      data: { isReady: true },
+    });
+
+    // Check if any non-host player is not ready
+    const otherMembers = room.members.filter((m) => m.userId !== userId);
+    const notReady = otherMembers.some((m) => !m.isReady);
     if (notReady) {
       res.status(400).json({ error: 'All players must be ready before starting.' });
       return;
@@ -574,6 +616,7 @@ router.post('/:code/start', requireAuth, async (req: AuthRequest, res: Response)
       success: true,
       matchId: game.matchId,
       publicState: game.getPublicState(),
+      privateState: game.getPrivateStateForPlayer(userId),
     });
   } catch (err: any) {
     console.error('Error starting game:', err);

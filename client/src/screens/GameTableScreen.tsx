@@ -24,11 +24,13 @@ import {
 } from 'lucide-react';
 
 interface GameTableScreenProps {
+  roomCode?: string;
   onMatchFinished: () => void;
   onExitToLobby: () => void;
 }
 
 export const GameTableScreen: React.FC<GameTableScreenProps> = ({
+  roomCode,
   onMatchFinished,
   onExitToLobby,
 }) => {
@@ -40,6 +42,7 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
     declareWin,
     sendChatMessage,
     chatMessages,
+    syncGameState,
   } = useGameSocket();
   const { showToast } = useToast();
 
@@ -48,6 +51,32 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
   const [showChat, setShowChat] = useState(false);
   const [passingCardId, setPassingCardId] = useState<string | null>(null);
   const [selectedProfilePlayer, setSelectedProfilePlayer] = useState<PublicPlayerSeat | null>(null);
+  const [syncFailed, setSyncFailed] = useState<boolean>(false);
+  const [syncRetries, setSyncRetries] = useState<number>(0);
+
+  // Auto-heal: If publicState or privateState is missing on mount, pull authoritative state via REST API
+  useEffect(() => {
+    if ((!publicState || !privateState) && roomCode) {
+      let isSubscribed = true;
+      syncGameState(roomCode).then((success) => {
+        if (!success && isSubscribed) {
+          const timer = setTimeout(() => {
+            if (isSubscribed) {
+              syncGameState(roomCode).then((secondTry) => {
+                if (!secondTry && isSubscribed) {
+                  setSyncFailed(true);
+                }
+              });
+            }
+          }, 1500);
+          return () => clearTimeout(timer);
+        }
+      });
+      return () => {
+        isSubscribed = false;
+      };
+    }
+  }, [publicState, privateState, roomCode, syncGameState, syncRetries]);
 
   // If match status transitions to FINISHED
   useEffect(() => {
@@ -61,10 +90,44 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
 
   if (!publicState || !privateState || !user) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center">
-        <div className="w-14 h-14 border-4 border-gold-500/20 border-t-gold-400 rounded-full animate-spin mb-4" />
-        <div className="text-base font-bold text-ivory-100">Synchronizing game table...</div>
-        <div className="text-xs text-stone-400 mt-1">Distributing 16 secret parchis securely</div>
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-4">
+        {syncFailed ? (
+          <div className="space-y-4 max-w-sm mx-auto bg-stone-900 border border-gold-500/40 p-6 rounded-3xl shadow-xl animate-fade-in">
+            <div className="w-12 h-12 mx-auto rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <Clock className="w-6 h-6 animate-pulse" />
+            </div>
+            <div className="text-base font-bold text-ivory-100">Synchronizing game table...</div>
+            <p className="text-xs text-stone-400">
+              Table cards are loading. Tap below to re-synchronize or return to table lobby.
+            </p>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSyncFailed(false);
+                  setSyncRetries((r) => r + 1);
+                  if (roomCode) syncGameState(roomCode);
+                }}
+                className="w-1/2 py-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 text-stone-900 text-xs font-bold transition-all shadow-gold-glow"
+              >
+                Re-sync Cards
+              </button>
+              <button
+                type="button"
+                onClick={onExitToLobby}
+                className="w-1/2 py-2.5 rounded-xl border border-stone-600 bg-stone-800 text-stone-300 text-xs font-bold hover:bg-stone-700 transition-all"
+              >
+                Back to Lobby
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="w-14 h-14 border-4 border-gold-500/20 border-t-gold-400 rounded-full animate-spin mb-4" />
+            <div className="text-base font-bold text-ivory-100">Synchronizing game table...</div>
+            <div className="text-xs text-stone-400 mt-1">Distributing 16 secret parchis securely</div>
+          </>
+        )}
       </div>
     );
   }

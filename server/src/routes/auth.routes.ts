@@ -3,6 +3,7 @@ import { prisma } from '../db.js';
 import { verifyAuthToken, generateSessionToken } from '../auth/firebase.js';
 import { requireAuth, AuthRequest } from '../auth/middleware.js';
 import { parseDeviceInfo } from '../utils/deviceParser.js';
+import { AccountDeletionService } from '../services/accountDeletion.service.js';
 import crypto from 'crypto';
 
 const router = Router();
@@ -29,6 +30,9 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // First, process any accounts whose 24-hr deletion grace expired without login
+    await AccountDeletionService.processExpiredDeletions().catch(() => {});
+
     // Match by firebaseUid OR email (handles linking existing accounts seamlessly)
     let user = await prisma.user.findFirst({
       where: {
@@ -38,6 +42,12 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
         ],
       },
     });
+
+    let deletionCancelled = false;
+    if (user && user.isDeletionPending) {
+      user = await AccountDeletionService.cancelDeletion(user.id);
+      deletionCancelled = true;
+    }
 
     if (!user) {
       // First-time signup
@@ -161,6 +171,7 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
       success: true,
       token: sessionToken,
       user,
+      deletionCancelled,
     });
   } catch (error: any) {
     console.error('Google Auth Error:', error);
@@ -181,9 +192,17 @@ router.post('/dev-login', async (req: Request, res: Response): Promise<void> => 
 
     const cleanUsername = username.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase();
 
+    await AccountDeletionService.processExpiredDeletions().catch(() => {});
+
     let user = await prisma.user.findUnique({
       where: { username: cleanUsername },
     });
+
+    let deletionCancelled = false;
+    if (user && user.isDeletionPending) {
+      user = await AccountDeletionService.cancelDeletion(user.id);
+      deletionCancelled = true;
+    }
 
     if (!user) {
       let friendCode = generateFriendCode();
@@ -263,6 +282,7 @@ router.post('/dev-login', async (req: Request, res: Response): Promise<void> => 
       success: true,
       token: sessionToken,
       user,
+      deletionCancelled,
     });
   } catch (error: any) {
     console.error('Dev Login Error:', error);
@@ -304,16 +324,35 @@ router.get('/me', requireAuth, async (req: AuthRequest, res: Response): Promise<
 });
 
 /**
- * Delete account
+ * Schedule Account Deletion with 24-Hour Grace Period
+ * If user does not log in for 24 hours, account is archived and deleted permanently.
+ * If user logs in within 24 hours, deletion is cancelled automatically.
  */
 router.delete('/account', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    await prisma.user.delete({
-      where: { id: req.user!.id },
+    const userId = req.user!.id;
+    const { scheduledFor } = await AccountDeletionService.scheduleDeletion(userId);
+    res.json({
+      success: true,
+      message: 'Account deletion scheduled. Do not log in for 24 hours for permanent deletion.',
+      scheduledFor,
     });
-    res.json({ success: true, message: 'Account deleted successfully' });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to delete account' });
+    console.error('Schedule account deletion error:', err);
+    res.status(500).json({ error: 'Failed to schedule account deletion' });
+  }
+});
+
+/**
+ * Cancel scheduled account deletion manually
+ */
+router.post('/cancel-delete', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+    await AccountDeletionService.cancelDeletion(userId);
+    res.json({ success: true, message: 'Account deletion cancelled successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to cancel deletion' });
   }
 });
 

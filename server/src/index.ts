@@ -10,6 +10,8 @@ import friendsRoutes from './routes/friends.routes.js';
 import roomsRoutes from './routes/rooms.routes.js';
 import matchesRoutes from './routes/matches.routes.js';
 import duoRoutes from './routes/duo.routes.js';
+import { prisma } from './db.js';
+import { AccountDeletionService } from './services/accountDeletion.service.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -58,6 +60,28 @@ const io = new Server(server, {
 });
 
 setupGameSockets(io);
+
+// 24-Hour Account Deletion & Permanent Archive Processor
+AccountDeletionService.processExpiredDeletions().catch(() => {});
+setInterval(() => {
+  AccountDeletionService.processExpiredDeletions().catch(() => {});
+}, 10 * 60 * 1000);
+
+// Auto-cleanup stale abandoned empty lobbies older than 24 hours
+async function cleanupStaleLobbies() {
+  try {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    await prisma.gameRoom.deleteMany({
+      where: {
+        status: 'LOBBY',
+        createdAt: { lte: oneDayAgo },
+        members: { none: { isBot: false } },
+      },
+    });
+  } catch {}
+}
+cleanupStaleLobbies();
+setInterval(cleanupStaleLobbies, 60 * 60 * 1000);
 
 // Start server only in non-serverless environments
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {

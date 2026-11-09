@@ -72,6 +72,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [requestSent, setRequestSent] = useState(false);
   const [loveShowerCount, setLoveShowerCount] = useState(0);
   const [isHandholdModalOpen, setIsHandholdModalOpen] = useState(false);
+  const [isHaareyaPlaying, setIsHaareyaPlaying] = useState<boolean>(romanticAudio.getHaareyaPlaying());
+
+  useEffect(() => {
+    romanticAudio.setHaareyaCallback((playing) => {
+      setIsHaareyaPlaying(playing);
+    });
+    return () => {
+      romanticAudio.setHaareyaCallback(() => {});
+    };
+  }, []);
 
   const effectiveId = target?.id || target?.userId || (target?.friendCode ? target.friendCode : null);
   const isSelf = Boolean(
@@ -463,14 +473,27 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   onClick={(e) => {
                     e.stopPropagation();
                     sound.playClick();
-                    romanticAudio.toggleHaareya();
+                    const next = romanticAudio.toggleHaareya();
+                    setIsHaareyaPlaying(next);
                   }}
-                  title="Song: Haareya (Meri Pyaari Bindu) • Tap to Pause / Play"
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-rose-950/70 border border-rose-400/40 text-pink-200 hover:border-pink-300 shadow-[0_0_12px_rgba(244,63,94,0.35)] transition-all hover:scale-105 active:scale-95"
+                  title={isHaareyaPlaying ? "Song: Haareya • Tap to Pause" : "Song: Haareya • Tap to Play"}
+                  className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all hover:scale-105 active:scale-95 shadow-md ${
+                    isHaareyaPlaying
+                      ? 'bg-rose-950/80 border border-rose-400 text-pink-200 shadow-[0_0_15px_rgba(244,63,94,0.5)]'
+                      : 'bg-stone-900/80 border border-amber-500/50 text-amber-300 hover:border-amber-400'
+                  }`}
                 >
-                  <span className="text-xs animate-pulse">🎵</span>
+                  <span className="text-xs">{isHaareyaPlaying ? '⏸️' : '▶️'}</span>
                   <span>Haareya • Arijit Singh</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  {isHaareyaPlaying ? (
+                    <span className="flex items-center gap-0.5">
+                      <span className="w-1 h-3 bg-pink-400 rounded-full animate-bounce" />
+                      <span className="w-1 h-2 bg-rose-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                      <span className="w-1 h-3 bg-pink-300 rounded-full animate-bounce [animation-delay:300ms]" />
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-amber-400/90 font-mono">(Tap to Play)</span>
+                  )}
                 </button>
               </div>
             )}

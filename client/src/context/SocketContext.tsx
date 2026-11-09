@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext.js';
 import { useToast } from './ToastContext.js';
 import { PublicGameState, PrivatePlayerState } from '../types/index.js';
 import { sound } from '../services/sound.js';
+import { api } from '../services/api.js';
 import confetti from 'canvas-confetti';
 
 interface ChatMessage {
@@ -30,6 +31,7 @@ interface SocketContextType {
   requestRematch: () => void;
   resetGameState: () => void;
   setGameStates: (publicState: PublicGameState | null, privateState: PrivatePlayerState | null) => void;
+  syncGameState: (roomCode: string) => Promise<boolean>;
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
@@ -56,6 +58,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [privateState, setPrivateState] = useState<PrivatePlayerState | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
+  const currentRoomIdRef = useRef<string | null>(null);
 
   const prevCardsCountRef = useRef<number>(4);
   const lastActiveSeatRef = useRef<number>(-1);
@@ -83,9 +86,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     s.on('connect', () => {
       console.log('⚡ Socket connected to server');
       setIsConnected(true);
-      if (currentRoomId) {
-        s.emit('room:join', { roomId: currentRoomId });
-        s.emit('game:requestSync', { roomId: currentRoomId });
+      const activeRoomId = currentRoomIdRef.current;
+      if (activeRoomId) {
+        s.emit('room:join', { roomId: activeRoomId });
+        s.emit('game:requestSync', { roomId: activeRoomId });
       }
     });
 
@@ -167,8 +171,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const joinRoomSocket = useCallback(
     (roomId: string) => {
       setCurrentRoomId(roomId);
+      currentRoomIdRef.current = roomId;
       if (socket && socket.connected) {
         socket.emit('room:join', { roomId });
+        socket.emit('game:requestSync', { roomId });
       }
     },
     [socket]
@@ -177,6 +183,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const leaveRoomSocket = useCallback(
     (roomId: string) => {
       setCurrentRoomId(null);
+      currentRoomIdRef.current = null;
       setPublicState(null);
       setPrivateState(null);
       if (socket && socket.connected) {
@@ -253,6 +260,22 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     []
   );
 
+  const syncGameState = useCallback(
+    async (roomCode: string): Promise<boolean> => {
+      try {
+        const res = await api.getGameState(roomCode);
+        if (res && res.success && res.publicState) {
+          setGameStates(res.publicState, res.privateState || null);
+          return true;
+        }
+      } catch (err) {
+        console.warn('Game state sync notice:', err);
+      }
+      return false;
+    },
+    [setGameStates]
+  );
+
   return (
     <SocketContext.Provider
       value={{
@@ -270,6 +293,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         requestRematch,
         resetGameState,
         setGameStates,
+        syncGameState,
       }}
     >
       {children}

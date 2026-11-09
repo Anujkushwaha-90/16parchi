@@ -183,6 +183,10 @@ class ApiService {
     return this.request(`/rooms/${code}/start`, { method: 'POST' });
   }
 
+  public getGameState(code: string) {
+    return this.request(`/rooms/${code}/game`);
+  }
+
   public inviteFriendToRoom(code: string, friendUserId: string) {
     return this.request(`/rooms/${code}/invite`, {
       method: 'POST',

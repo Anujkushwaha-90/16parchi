@@ -14,7 +14,7 @@ interface AuthContextType {
   user: UserProfile | null;
   loading: boolean;
   isFirebaseAvailable: boolean;
-  loginWithGoogle: () => Promise<{ success: boolean; redirecting?: boolean }>;
+  loginWithGoogle: () => Promise<{ success: boolean; redirecting?: boolean; deletionCancelled?: boolean }>;
   loginWithGoogleRedirect: () => Promise<void>;
   loginWithDev: (username: string, displayName?: string, avatarSeed?: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -24,9 +24,29 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const getCachedUser = (): UserProfile | null => {
+  try {
+    const raw = localStorage.getItem('parchi_user');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [user, setUserState] = useState<UserProfile | null>(getCachedUser);
+  const [loading, setLoading] = useState<boolean>(() => !getCachedUser() && !!api.getToken());
+
+  const setUser = useCallback((u: UserProfile | null) => {
+    setUserState(u);
+    try {
+      if (u) {
+        localStorage.setItem('parchi_user', JSON.stringify(u));
+      } else {
+        localStorage.removeItem('parchi_user');
+      }
+    } catch {}
+  }, []);
 
   // Sync token from localStorage or fetch user from server
   const refreshUser = useCallback(async () => {
@@ -112,7 +132,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [refreshUser]);
 
-  const loginWithGoogle = async (): Promise<{ success: boolean; redirecting?: boolean }> => {
+  const loginWithGoogle = async (): Promise<{
+    success: boolean;
+    redirecting?: boolean;
+    deletionCancelled?: boolean;
+  }> => {
     const googleResult = await signInWithGoogle();
     if (googleResult && googleResult.redirecting) {
       return { success: false, redirecting: true };
@@ -124,7 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (res && res.token && res.user) {
           api.setToken(res.token);
           setUser(res.user);
-          return { success: true };
+          return { success: true, deletionCancelled: Boolean(res.deletionCancelled) };
         }
       } finally {
         setLoading(false);

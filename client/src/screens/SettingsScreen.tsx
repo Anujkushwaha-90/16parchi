@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext.js';
 import { useToast } from '../context/ToastContext.js';
 import { sound } from '../services/sound.js';
@@ -18,7 +18,8 @@ import {
   Upload,
   User,
   Loader2,
-  History,
+  Clock,
+  X,
 } from 'lucide-react';
 
 interface SettingsScreenProps {
@@ -59,28 +60,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate }) =>
   const [reducedMotion, setReducedMotion] = useState(
     localStorage.getItem('parchi_reduced_motion') === 'true'
   );
-  const [avatarHistory, setAvatarHistory] = useState<any[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const isVip = isVipUser(user);
-
-  const fetchHistory = useCallback(async () => {
-    try {
-      setLoadingHistory(true);
-      const res = await api.getAvatarHistory();
-      if (res && Array.isArray(res.history)) {
-        setAvatarHistory(res.history);
-      }
-    } catch (e) {
-      console.warn('Failed to fetch avatar history:', e);
-    } finally {
-      setLoadingHistory(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
 
   useEffect(() => {
     if (user?.displayName) setDisplayName(user.displayName);
@@ -123,7 +106,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate }) =>
         updateUser(res.user);
       }
       await refreshUser();
-      await fetchHistory();
 
       sound.playClick();
       showToast('Profile photo uploaded successfully!', 'success');
@@ -194,22 +176,22 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate }) =>
     }
   };
 
-  const handleDeleteAccount = async () => {
-    if (
-      !window.confirm(
-        'Are you sure you want to permanently delete your account? All match records and friends will be deleted.'
-      )
-    ) {
-      return;
-    }
+  const handleConfirmScheduledDelete = async () => {
+    setIsDeletingAccount(true);
     sound.playClick();
     try {
       await api.deleteAccount();
       await logout();
+      setShowDeleteModal(false);
       onNavigate('landing');
-      showToast('Account permanently deleted', 'info');
-    } catch (e) {
-      showToast('Failed to delete account', 'error');
+      showToast(
+        'Account scheduled for deletion. Do NOT log in for 24 hours to finalize permanent deletion.',
+        'info'
+      );
+    } catch (e: any) {
+      showToast(e?.message || 'Failed to schedule account deletion', 'error');
+    } finally {
+      setIsDeletingAccount(false);
     }
   };
 
@@ -372,73 +354,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate }) =>
                   </button>
                 </div>
               </div>
-
-              {/* Saved Uploads History Gallery */}
-              <div className="p-4 rounded-2xl bg-table-card/70 border border-table-border space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-stone-200 flex items-center gap-2">
-                    <History className="w-4 h-4 text-gold-400" />
-                    <span>Aapki Saved Photos (Database History)</span>
-                  </span>
-                  <span className="text-[10px] text-stone-400 font-mono bg-black/40 px-2 py-0.5 rounded-full border border-white/5">
-                    {avatarHistory.length} photo{avatarHistory.length !== 1 ? 's' : ''} saved
-                  </span>
-                </div>
-
-                {loadingHistory ? (
-                  <div className="flex items-center justify-center gap-2 py-4 text-xs text-stone-400">
-                    <Loader2 className="w-4 h-4 animate-spin text-gold-400" />
-                    <span>Database se photos load ho rahi hain...</span>
-                  </div>
-                ) : avatarHistory.length === 0 ? (
-                  <div className="py-4 text-center text-xs text-stone-400 bg-black/20 rounded-xl border border-dashed border-white/10">
-                    Abhi tak koi photo upload nahi ki gayi hai. Upar wale button se upload karein!
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5 pt-1">
-                    {avatarHistory.map((item) => {
-                      const isActive = selectedAvatar === item.avatarUrl;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          disabled={uploadingPhoto}
-                          onClick={() => handleAutoSavePhoto(item.avatarUrl, 'HISTORY_RESTORE', item.fileSize)}
-                          className={`relative group rounded-xl p-1.5 border-2 transition-all flex flex-col items-center gap-1.5 text-center ${
-                            isActive
-                              ? 'border-emerald-400 bg-emerald-950/50 shadow-[0_0_15px_rgba(52,211,153,0.4)] scale-105'
-                              : 'border-white/10 hover:border-gold-400/70 bg-black/40 hover:bg-black/60'
-                          }`}
-                          title="Click to activate this photo"
-                        >
-                          <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-stone-900 border border-white/10">
-                            <img
-                              src={item.avatarUrl}
-                              alt="Uploaded"
-                              className="w-full h-full object-cover"
-                            />
-                            {isActive && (
-                              <div className="absolute inset-0 bg-emerald-500/20 flex items-center justify-center">
-                                <span className="p-1 rounded-full bg-emerald-500 text-black shadow-md">
-                                  <Check className="w-3.5 h-3.5 stroke-[3]" />
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="w-full">
-                            <span className={`block text-[10px] font-bold truncate ${isActive ? 'text-emerald-400' : 'text-stone-300'}`}>
-                              {isActive ? '✓ Active' : 'Tap to Use'}
-                            </span>
-                            <span className="block text-[9px] text-stone-500 font-mono truncate">
-                              {new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
             </>
           )}
 
@@ -600,14 +515,81 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate }) =>
           </button>
 
           <button
-            onClick={handleDeleteAccount}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-red-600/80 hover:bg-red-600 text-white text-xs font-bold flex items-center justify-center gap-2 shadow"
+            onClick={() => {
+              sound.playClick();
+              setShowDeleteModal(true);
+            }}
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-red-600/80 hover:bg-red-600 text-white text-xs font-bold flex items-center justify-center gap-2 shadow hover:scale-105 active:scale-95 transition-all"
           >
             <Trash2 className="w-4 h-4" />
             <span>Permanently Delete Account</span>
           </button>
         </div>
       </div>
+
+      {/* 24-Hour Account Deletion Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-md bg-stone-900 border-2 border-red-500/60 rounded-3xl p-6 sm:p-7 shadow-[0_0_50px_rgba(239,68,68,0.35)] space-y-5 animate-scale-up">
+            <button
+              onClick={() => setShowDeleteModal(false)}
+              className="absolute top-4 right-4 text-stone-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="text-center space-y-2">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-red-500/10 border border-red-500/40 flex items-center justify-center text-red-400 shadow-[0_0_20px_rgba(239,68,68,0.4)]">
+                <Clock className="w-7 h-7 text-amber-400 animate-pulse" />
+              </div>
+              <h3 className="font-serif font-black text-xl text-red-300">
+                24-Hour Account Deletion
+              </h3>
+              <p className="text-xs text-amber-400/90 font-medium font-mono">
+                ⏳ 24 Ghante Ka Grace Period Notice
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-red-950/40 border border-red-500/30 text-xs text-stone-300 space-y-3 leading-relaxed">
+              <div className="flex items-start gap-2.5">
+                <span className="text-base shrink-0">🛑</span>
+                <span>
+                  <strong className="text-white">Agle 24 ghante login mat karna:</strong> Agar aap agle 24 ghante tak login nahi karenge, toh aapka account permanently delete ho jayega aur aapka sara data (photos, stats, match history) permanent archive me transfer kar diya jayega.
+                </span>
+              </div>
+              <div className="flex items-start gap-2.5 border-t border-red-500/20 pt-2.5">
+                <span className="text-base shrink-0">💡</span>
+                <span>
+                  <strong className="text-emerald-400">Cancel karne ke liye:</strong> Agar aapka irada badal jaye, toh 24 ghante ke andar kabhi bhi dobara login kar lena — deletion automatically cancel ho jayegi aur account pehle jaisa safe rahega!
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="w-full sm:w-1/2 py-2.5 rounded-xl border border-stone-600 bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-bold transition-all"
+              >
+                Nahi, Cancel Karein
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingAccount}
+                onClick={handleConfirmScheduledDelete}
+                className="w-full sm:w-1/2 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white text-xs font-bold transition-all shadow-[0_0_20px_rgba(244,63,94,0.4)] flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {isDeletingAccount ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                <span>Schedule & Logout</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

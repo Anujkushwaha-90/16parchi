@@ -14,6 +14,7 @@ import { RankingsScreen } from './screens/RankingsScreen.js';
 import { MatchHistoryScreen } from './screens/MatchHistoryScreen.js';
 import { SettingsScreen } from './screens/SettingsScreen.js';
 import { PublicProfileScreen } from './screens/PublicProfileScreen.js';
+import { api } from './services/api.js';
 
 function MainApp() {
   const { user, loading } = useAuth();
@@ -83,9 +84,14 @@ function MainApp() {
     setCurrentScreen(screen);
   };
 
-  const handleRoomCreatedOrJoined = (code: string) => {
+  const handleRoomCreatedOrJoined = async (code: string) => {
     setActiveRoomCode(code);
     setCurrentScreen('lobby');
+    try {
+      await api.joinRoom(code);
+    } catch (e) {
+      // If already a member or host, lobby will seamlessly load
+    }
   };
 
   return (
@@ -130,6 +136,7 @@ function MainApp() {
 
         {currentScreen === 'table' && (
           <GameTableScreen
+            roomCode={activeRoomCode || undefined}
             onMatchFinished={() => setCurrentScreen('rankings')}
             onExitToLobby={() => setCurrentScreen('lobby')}
           />

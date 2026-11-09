@@ -62,7 +62,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       const res = await loginWithGoogle();
       if (res.success) {
         sound.playClick();
-        showToast('Welcome to 16 Parchi!', 'success');
+        if (res.deletionCancelled) {
+          showToast('Welcome back! Your 24-hr account deletion was cancelled.', 'success');
+        } else {
+          showToast('Welcome to 16 Parchi!', 'success');
+        }
         onSuccess?.();
         onClose();
       } else if (res.redirecting) {
