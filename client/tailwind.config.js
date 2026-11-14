@@ -9,72 +9,45 @@ export default {
     extend: {
       colors: {
         table: {
-          dark: '#080c0e',
-          surface: '#11171d',
-          card: '#161f26',
-          border: '#24323d',
-          felt: '#0b2b20',
-          feltBorder: '#144634',
+          dark: '#07090e',
+          surface: '#0d1118',
+          card: '#131822',
+          border: '#1f2737',
+          felt: '#0a101d',
+          feltBorder: '#1c2538',
+        },
+        cyber: {
+          purple: '#8b5cf6',
+          violet: '#7c3aed',
+          indigo: '#6366f1',
+          cyan: '#06b6d4',
+          neonPink: '#ec4899',
+          amber: '#f59e0b',
         },
         gold: {
-          50: '#fffbeb',
-          100: '#fef3c7',
-          200: '#fde68a',
-          300: '#fcd34d',
-          400: '#fbbf24',
-          500: '#f59e0b',
-          600: '#d97706',
-          700: '#b45309',
-          800: '#92400e',
-        },
-        emerald: {
-          850: '#064230',
-          950: '#02241a',
+          400: '#a78bfa', // mapped to sleek cyber violet
+          500: '#8b5cf6',
+          600: '#7c3aed',
         },
         ivory: {
           50: '#ffffff',
-          100: '#fdfbf7',
-          200: '#f7f4ec',
-          300: '#ede8dc',
-          400: '#dcd4c3',
+          100: '#f8fafc',
+          200: '#f1f5f9',
+          300: '#e2e8f0',
+          400: '#94a3b8',
         }
       },
       fontFamily: {
-        sans: ['Plus Jakarta Sans', 'Inter', 'system-ui', 'sans-serif'],
-        serif: ['Cinzel', 'Playfair Display', 'serif'],
+        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+        serif: ['Syne', 'Plus Jakarta Sans', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
       boxShadow: {
-        'table': 'inset 0 0 80px rgba(0, 0, 0, 0.8), 0 20px 50px rgba(0, 0, 0, 0.9)',
-        'gold-glow': '0 0 25px rgba(245, 158, 11, 0.35)',
-        'emerald-glow': '0 0 25px rgba(16, 185, 129, 0.35)',
-        'card': '0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.4)',
-        'card-hover': '0 20px 30px -10px rgba(245, 158, 11, 0.3), 0 10px 15px -5px rgba(0, 0, 0, 0.5)',
+        'cyber-card': '0 8px 24px -4px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
+        'neon-purple': '0 0 20px rgba(139, 92, 246, 0.35)',
+        'neon-cyan': '0 0 20px rgba(6, 182, 212, 0.35)',
+        'neon-pink': '0 0 20px rgba(236, 72, 153, 0.35)',
       },
-      keyframes: {
-        shimmer: {
-          '0%': { backgroundPosition: '-200% 0' },
-          '100%': { backgroundPosition: '200% 0' },
-        },
-        pulseGlow: {
-          '0%, 100%': { opacity: '0.8', transform: 'scale(1)' },
-          '50%': { opacity: '1', transform: 'scale(1.03)' },
-        },
-        cardFlip: {
-          '0%': { transform: 'rotateY(0deg)' },
-          '100%': { transform: 'rotateY(180deg)' },
-        },
-        passClockwise: {
-          '0%': { transform: 'scale(1) translateY(0)', opacity: '1' },
-          '50%': { transform: 'scale(1.15) translateY(-30px)', opacity: '0.9' },
-          '100%': { transform: 'scale(0.8) translateY(-80px)', opacity: '0' },
-        }
-      },
-      animation: {
-        shimmer: 'shimmer 2.5s infinite linear',
-        pulseGlow: 'pulseGlow 2s infinite ease-in-out',
-        cardFlip: 'cardFlip 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards',
-      }
     },
   },
   plugins: [],

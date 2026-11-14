@@ -36,29 +36,29 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({ onNavigate, onOpen
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         {/* Left Copy */}
         <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gold-500/10 border border-gold-500/30 text-gold-400 text-xs font-semibold tracking-wide shadow-gold-glow">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>The Traditional 16 Parchi Slips Game, Now Online</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-950/40 border border-violet-500/30 text-violet-300 text-xs font-medium">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            <span>Competitive Indian Card Arena • Online Multiplayer</span>
           </div>
 
-          <h1 className="text-4xl sm:text-6xl font-serif font-black tracking-tight text-ivory-100 leading-tight">
+          <h1 className="text-4xl sm:text-6xl font-serif font-black tracking-tight text-white leading-tight">
             Pass the Slips. <br />
-            <span className="gold-gradient-text">Complete the Four.</span> <br />
-            Claim the Throne.
+            <span className="bg-gradient-to-r from-violet-400 via-indigo-400 to-cyan-400 bg-clip-text text-transparent">Match All Four.</span> <br />
+            Dominate the Table.
           </h1>
 
-          <p className="text-stone-300 text-sm sm:text-base max-w-xl mx-auto lg:mx-0 leading-relaxed">
-            Experience the beloved Indian card table game in real-time. Four players, sixteen royal parchis, and clockwork circular transfers. Collect all 4 matching slips to declare victory!
+          <p className="text-slate-400 text-sm sm:text-base max-w-xl mx-auto lg:mx-0 leading-relaxed font-normal">
+            The beloved traditional Indian slip passing game rebuilt with competitive esports netcode. Real-time circular transfers, private lobbies, and high-stakes match dare penalties.
           </p>
 
           {/* Action CTAs */}
           <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-2">
             <button
               onClick={handleStartPlaying}
-              className="gold-gradient-btn px-8 py-3.5 rounded-2xl text-sm sm:text-base font-bold shadow-gold-glow flex items-center gap-2 group"
+              className="px-8 py-3.5 rounded-xl text-sm sm:text-base font-bold bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-lg shadow-indigo-950/60 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
             >
-              <Play className="w-5 h-5 fill-current group-hover:scale-110 transition-transform" />
-              <span>{user ? 'Go to Table' : 'Play Now with Friends'}</span>
+              <Play className="w-5 h-5 fill-current" />
+              <span>{user ? 'Enter Arena' : 'Play Live with Friends'}</span>
               <ChevronRight className="w-4 h-4 ml-1" />
             </button>
 
@@ -67,26 +67,26 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({ onNavigate, onOpen
                 sound.playClick();
                 setShowHowToPlay(true);
               }}
-              className="px-6 py-3.5 rounded-2xl border border-table-border bg-table-card hover:bg-white/5 text-stone-200 text-sm sm:text-base font-semibold flex items-center gap-2 transition-colors"
+              className="px-6 py-3.5 rounded-xl border border-slate-700/80 bg-slate-900/60 hover:bg-slate-800/60 text-slate-200 text-sm sm:text-base font-medium flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
             >
-              <HelpCircle className="w-5 h-5 text-gold-400" />
+              <HelpCircle className="w-4 h-4 text-violet-400" />
               <span>How to Play</span>
             </button>
           </div>
 
           {/* Feature Badges */}
-          <div className="pt-6 grid grid-cols-3 gap-3 border-t border-table-border/60 max-w-lg mx-auto lg:mx-0 text-left">
-            <div className="p-3 rounded-xl bg-table-surface border border-table-border/50">
-              <div className="text-gold-400 font-bold text-sm sm:text-base">4 Players</div>
-              <div className="text-[11px] text-stone-400">16 Parchis Total</div>
+          <div className="pt-6 grid grid-cols-3 gap-3 border-t border-slate-800/80 max-w-lg mx-auto lg:mx-0 text-left">
+            <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+              <div className="text-violet-400 font-bold text-sm sm:text-base">4-8 Players</div>
+              <div className="text-[11px] text-slate-400 font-mono">Custom Decks</div>
             </div>
-            <div className="p-3 rounded-xl bg-table-surface border border-table-border/50">
-              <div className="text-emerald-400 font-bold text-sm sm:text-base">Real-Time</div>
-              <div className="text-[11px] text-stone-400">Socket.IO Sync</div>
+            <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+              <div className="text-cyan-400 font-bold text-sm sm:text-base">Real-Time</div>
+              <div className="text-[11px] text-slate-400 font-mono">Zero Latency</div>
             </div>
-            <div className="p-3 rounded-xl bg-table-surface border border-table-border/50">
-              <div className="text-cyan-400 font-bold text-sm sm:text-base">Anti-Cheat</div>
-              <div className="text-[11px] text-stone-400">Zero Hand Leaks</div>
+            <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+              <div className="text-pink-400 font-bold text-sm sm:text-base">Stakes</div>
+              <div className="text-[11px] text-slate-400 font-mono">Loser Dares</div>
             </div>
           </div>
         </div>

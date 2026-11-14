@@ -385,26 +385,26 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
       )}
 
-      {/* ⚡ Quick Match Hero Section (Play in 5s) */}
-      <div className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-r from-amber-950/80 via-yellow-950/40 to-emerald-950/80 border-2 border-gold-400/60 shadow-[0_0_35px_rgba(245,158,11,0.25)] flex flex-col md:flex-row items-center justify-between gap-6">
-        <div className="flex items-center gap-5">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-stone-950 flex items-center justify-center font-black text-3xl shadow-lg shrink-0 animate-bounce">
+      {/* ⚡ Quick Match Hero Section */}
+      <div className="relative overflow-hidden rounded-2xl p-6 bg-gradient-to-r from-violet-950/40 via-indigo-950/30 to-slate-900/60 border border-violet-500/30 flex flex-col md:flex-row items-center justify-between gap-6 shadow-lg shadow-violet-950/20">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-violet-500/20 border border-violet-400/40 text-violet-300 flex items-center justify-center font-bold text-xl shrink-0 shadow-inner">
             ⚡
           </div>
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-gold-400 text-stone-950">
-                Instant Play
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-violet-500/20 border border-violet-400/30 text-violet-300 font-mono">
+                Speed Queue
               </span>
-              <span className="text-xs text-amber-300 font-semibold flex items-center gap-1">
-                ⏱️ Starts in &lt; 5 seconds
+              <span className="text-xs text-slate-400 font-medium font-mono">
+                Instant Table Setup
               </span>
             </div>
-            <h3 className="text-xl sm:text-2xl font-serif font-black text-white">
-              Quick Match (Play in 5s)
+            <h3 className="text-lg sm:text-xl font-bold text-white tracking-wide">
+              Quick Match Arena
             </h3>
-            <p className="text-xs sm:text-sm text-stone-300 max-w-xl mt-0.5">
-              No waiting for friends! Instantly jump into a live table with Bollywood deck & intelligent AI players.
+            <p className="text-xs text-slate-400 max-w-xl mt-0.5">
+              Jump directly into a 4-player competitive table with ready bots and fast turns.
             </p>
           </div>
         </div>
@@ -412,10 +412,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <button
           onClick={handleQuickMatch}
           disabled={isQuickMatching}
-          className="w-full md:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:to-yellow-300 text-stone-950 font-black text-sm sm:text-base shadow-[0_0_30px_rgba(245,158,11,0.6)] transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 cursor-pointer shrink-0 disabled:opacity-50"
+          className="w-full md:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold text-sm shadow-md shadow-indigo-950/60 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer shrink-0 disabled:opacity-50"
         >
-          <span>{isQuickMatching ? 'Finding Match...' : '⚡ PLAY NOW (5s)'}</span>
-          <ArrowRight className="w-5 h-5" />
+          <span>{isQuickMatching ? 'Connecting...' : 'Play Now'}</span>
+          <ArrowRight className="w-4 h-4" />
         </button>
       </div>
 

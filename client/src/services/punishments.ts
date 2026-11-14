@@ -9,51 +9,51 @@ export interface MatchBetOption {
 export const MATCH_BETS: MatchBetOption[] = [
   {
     id: 'chai_samosa',
-    title: 'Chai-Samosa on Loser',
-    description: 'Loser will treat the winner to steaming hot Chai & Samosa at the canteen!',
+    title: 'Garama-Garam Chai & Samosa Treat',
+    description: 'Loser will treat the table to hot cutting chai and crisp samosas with sweet-sour chutney!',
     emoji: '☕',
     penaltySlipText: (loser, winner) =>
-      `As per 16 Parchi Canteen Rules, ${loser} has lost and MUST treat Champion ${winner} to hot Chai & Samosa today! No excuses! ☕🥟`,
+      `👑 16 Parchi Official Court Verdict:\n${loser} has been declared the absolute loser!\n\nAs per table protocol, ${loser} is strictly ordered to sponsor steaming hot Cutting Chai & Crispy Samosas for the Champion ${winner}! ☕🥟\n\nNo excuses accepted. Pay up immediately!`,
   },
   {
     id: 'whatsapp_status',
-    title: 'Winner Photo on WhatsApp Status',
+    title: 'Winner Photo on WhatsApp Status (24 Hours)',
     description: "Loser must put Winner's photo on WhatsApp Status for 24 hours with caption 'Mere Guru'.",
-    emoji: '📱',
+    emoji: '📸',
     penaltySlipText: (loser, winner) =>
-      `${loser} has been defeated! Penalty: Must put ${winner}'s photo on WhatsApp Status for 24 hours with caption: "Mere 16 Parchi ke Guru Ji!" 📸👑`,
+      `⚡ Court Order: ${loser} has finished DEAD LAST!\n\nPenalty:\nMust put Champion ${winner}'s photo on WhatsApp Status for 24 full hours with the caption:\n👉 "16 Parchi ke Asli Baap & Mere Guru Ji" 📸👑\n\nTake screenshot as proof!`,
   },
   {
     id: 'voice_note_song',
-    title: 'Sing a Song in WhatsApp Group',
-    description: 'Loser must send a 30s voice note singing an emotional Bollywood song.',
+    title: 'Sing Sad Bollywood Song on Voice Note',
+    description: 'Loser must send a 30s emotional voice note singing a heartbreak song in the WhatsApp group.',
     emoji: '🎤',
     penaltySlipText: (loser, winner) =>
-      `Defeat Penalty: ${loser} must immediately send a 30-second voice note singing "Accha Sila Diya Tune Mere Pyar Ka" in the friends WhatsApp group! 🎤😂`,
+      `💔 Emotional Damage Penalty:\n${loser} suffered a crushing defeat against ${winner}!\n\n${loser} MUST send a 30-second live voice recording singing "Achha Sila Diya Tune Mere Pyar Ka" in the friends WhatsApp group right now! 🎤😂`,
   },
   {
     id: 'call_me_boss',
-    title: 'Call Winner "Sir / Boss" for 24 Hours',
-    description: 'Loser must address the winner as "Sir" or "Boss" in all conversations today.',
-    emoji: '👑',
+    title: 'Address Winner as "Sir / Maalik" for 24 Hours',
+    description: 'Loser must address the winner as "Sir" or "Maalik" in every chat today.',
+    emoji: '🫡',
     penaltySlipText: (loser, winner) =>
-      `Royal Decree: ${loser} has lost the match and is officially bound to address Champion ${winner} as "Sir / Boss" in every message for the next 24 hours! 🫡🙇‍♂️`,
+      `🎖️ Royal Decree:\n${loser} has lost their pride!\n\nFor the next 24 hours, ${loser} is officially obligated to address Champion ${winner} as "Sir / Maalik / Huzoor" in every message and phone call! 🫡🙇‍♂️`,
   },
   {
     id: 'treat_party',
-    title: 'Pizza / Momos Party Treat',
-    description: 'Loser will sponsor a delicious Pizza or Momos treat for the table!',
+    title: 'Pizza & Cold Drink Party Treat',
+    description: 'Loser will sponsor a delicious Pizza and Cold Drink party for the champion.',
     emoji: '🍕',
     penaltySlipText: (loser, winner) =>
-      `Foodie Penalty: ${loser} has finished last! Sponsoring a piping hot plate of Momos/Pizza for Champion ${winner} is now mandatory! 🍕🔥`,
+      `🍕 Grand Foodie Penalty:\n${loser} was outsmarted at the table!\n\nLoser ${loser} is now legally bound by friendship rules to sponsor a Cheesy Pizza & Chilled Cold Drink treat for Champion ${winner}! 🍕🥤🔥`,
   },
   {
     id: 'custom',
-    title: 'Custom Shart (Host Choice)',
-    description: 'Host sets a custom hilarious dare or punishment for the match.',
+    title: 'Custom High Stakes Dare',
+    description: 'Host sets a custom hilarious dare or challenge for the match.',
     emoji: '🎯',
     penaltySlipText: (loser, winner) =>
-      `Custom Shart Enforced: ${loser} must complete the custom punishment decreed by Champion ${winner}!`,
+      `🎯 High Stakes Shart Executed:\n${loser} finished last and MUST complete the decreed dare for Champion ${winner}!`,
   },
 ];
 

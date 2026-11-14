@@ -72,24 +72,43 @@ export const RankingsScreen: React.FC<RankingsScreenProps> = ({
   const handleSharePenaltyWhatsApp = () => {
     sound.playClick();
     const shareUrl = getShareUrl();
-    const winnerName = isWinnerMe ? 'Maine' : winner?.displayName || 'Champion';
-    const loserName = isLoserMe ? 'Main' : loser?.displayName || 'Loser';
+    const winnerName = isWinnerMe ? '👑 Maine (Champion)' : `👑 ${winner?.displayName || 'Champion'}`;
+    const loserName = isLoserMe ? '🤦‍♂️ Main (Haara Hua Khiladi)' : `🤦‍♂️ ${loser?.displayName || 'Loser'}`;
 
-    const roastMessage = `📜 *16 PARCHI OFFICIAL PENALTY SLIP* 📜\nRoom Code: ${publicState.roomCode}\n🏆 Champion: ${winnerName}\n🤦‍♂️ Loser (Danda Bhari): ${loserName}\n\n⚠️ *Shart Ka Faisla:*\n"${penaltyText}"\n\nChupchaap shart poori karo, warna dosti khatam! 😂\n👉 Badla lene ke liye match join karo: ${shareUrl}`;
+    const roastMessage = `╔════════════════════════════════════════╗
+  📜  *16 PARCHI OFFICIAL COURT SLIP*  📜
+╚════════════════════════════════════════╝
+
+🎮 *Match Room:* ${publicState.roomCode}
+🏆 *Winner:* ${winnerName}
+💀 *Loser:* ${loserName}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚨 *SHART KA FAISLA (STRICT PENALTY)* 🚨
+"${penaltyText}"
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️ *Table Agreement Clause:*
+Chupchaap bina natak kiye shart poori karo, warna pure group ke saamne bezti pakki hai! 😂
+
+👉 *Badla lene ke liye match join karo:*
+${shareUrl}`;
 
     const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(roastMessage)}`;
     window.open(whatsappUrl, '_blank');
-    showToast('Opening WhatsApp with Penalty Slip...', 'success');
+    showToast('Opening WhatsApp with Official Penalty Slip...', 'success');
   };
 
   const handleCopyPenaltySlip = () => {
     sound.playClick();
-    const winnerName = isWinnerMe ? 'Maine' : winner?.displayName || 'Champion';
-    const loserName = isLoserMe ? 'Main' : loser?.displayName || 'Loser';
-    const roastMessage = `📜 *16 PARCHI OFFICIAL PENALTY SLIP* 📜\nRoom Code: ${publicState.roomCode}\n🏆 Champion: ${winnerName}\n🤦‍♂️ Loser: ${loserName}\n\n⚠️ Shart: "${penaltyText}" 😂`;
+    const shareUrl = getShareUrl();
+    const winnerName = isWinnerMe ? '👑 Maine' : `👑 ${winner?.displayName || 'Champion'}`;
+    const loserName = isLoserMe ? '🤦‍♂️ Main' : `🤦‍♂️ ${loser?.displayName || 'Loser'}`;
+
+    const roastMessage = `📜 *16 PARCHI OFFICIAL PENALTY SLIP* 📜\nRoom: ${publicState.roomCode}\n🏆 Champion: ${winnerName}\n💀 Loser: ${loserName}\n\n⚠️ *Shart:* "${penaltyText}" 😂\n\n👉 Challenge: ${shareUrl}`;
     navigator.clipboard.writeText(roastMessage);
     setCopiedPenalty(true);
-    showToast('Penalty slip copied! Send to loser on WhatsApp/Insta!', 'gold');
+    showToast('Penalty slip copied! Send to friends on WhatsApp/Insta!', 'gold');
     setTimeout(() => setCopiedPenalty(false), 2500);
   };
 

@@ -23,84 +23,73 @@ export const Card: React.FC<CardProps> = ({
 }) => {
   // Map icon name to Lucide Icon
   const getIcon = (iconName: string) => {
+    const size = small ? 'w-3.5 h-3.5' : 'w-6 h-6';
     switch (iconName) {
-      case 'Crown': return <Crown className={small ? 'w-4 h-4' : 'w-7 h-7'} />;
-      case 'Sparkles': return <Sparkles className={small ? 'w-4 h-4' : 'w-7 h-7'} />;
-      case 'Moon': return <Moon className={small ? 'w-4 h-4' : 'w-7 h-7'} />;
-      case 'Shield': return <Shield className={small ? 'w-4 h-4' : 'w-7 h-7'} />;
-      case 'Flame': return <Flame className={small ? 'w-4 h-4' : 'w-7 h-7'} />;
-      case 'Droplets': return <Droplets className={small ? 'w-4 h-4' : 'w-7 h-7'} />;
-      case 'Mountain': return <Mountain className={small ? 'w-4 h-4' : 'w-7 h-7'} />;
-      case 'Wind': return <Wind className={small ? 'w-4 h-4' : 'w-7 h-7'} />;
-      case 'Sun': return <Sun className={small ? 'w-4 h-4' : 'w-7 h-7'} />;
-      case 'Flower2': return <Flower2 className={small ? 'w-4 h-4' : 'w-7 h-7'} />;
-      case 'Leaf': return <Leaf className={small ? 'w-4 h-4' : 'w-7 h-7'} />;
-      case 'Snowflake': return <Snowflake className={small ? 'w-4 h-4' : 'w-7 h-7'} />;
-      case 'Cat': return <Cat className={small ? 'w-4 h-4' : 'w-7 h-7'} />;
-      case 'Feather': return <Feather className={small ? 'w-4 h-4' : 'w-7 h-7'} />;
-      default: return <Sparkles className={small ? 'w-4 h-4' : 'w-7 h-7'} />;
+      case 'Crown': return <Crown className={size} />;
+      case 'Sparkles': return <Sparkles className={size} />;
+      case 'Moon': return <Moon className={size} />;
+      case 'Shield': return <Shield className={size} />;
+      case 'Flame': return <Flame className={size} />;
+      case 'Droplets': return <Droplets className={size} />;
+      case 'Mountain': return <Mountain className={size} />;
+      case 'Wind': return <Wind className={size} />;
+      case 'Sun': return <Sun className={size} />;
+      case 'Flower2': return <Flower2 className={size} />;
+      case 'Leaf': return <Leaf className={size} />;
+      case 'Snowflake': return <Snowflake className={size} />;
+      case 'Cat': return <Cat className={size} />;
+      case 'Feather': return <Feather className={size} />;
+      default: return <Sparkles className={size} />;
     }
   };
 
   const sizeClasses = small
-    ? 'w-14 h-20 sm:w-16 sm:h-24 rounded-lg p-1 sm:p-1.5'
-    : 'w-20 h-32 xs:w-24 xs:h-36 sm:w-32 sm:h-48 md:w-36 md:h-52 rounded-xl sm:rounded-2xl p-2 sm:p-3';
+    ? 'w-14 h-20 sm:w-16 sm:h-24 rounded-lg p-1.5'
+    : 'w-24 h-36 xs:w-28 xs:h-40 sm:w-32 sm:h-48 md:w-36 md:h-52 rounded-2xl p-3';
 
   return (
     <div
       onClick={!disabled ? onClick : undefined}
-      className={`parchi-card relative transition-all duration-300 flex flex-col justify-between cursor-pointer select-none border ${
-        isSelected ? 'selected ring-4 ring-gold-400 ring-offset-2 ring-offset-table-dark' : ''
-      } ${isPassing ? 'opacity-30 scale-90 -translate-y-8 pointer-events-none' : ''} ${
+      className={`parchi-chit relative flex flex-col justify-between cursor-pointer select-none ${
+        isSelected ? 'selected' : ''
+      } ${isPassing ? 'opacity-20 scale-90 -translate-y-8 pointer-events-none' : ''} ${
         disabled ? 'cursor-not-allowed opacity-75' : ''
       } ${sizeClasses}`}
-      style={{
-        background: 'linear-gradient(145deg, #fdfbf7 0%, #f4ede1 50%, #e6dac6 100%)',
-        borderColor: isSelected ? '#fbbf24' : '#c9b89d',
-        boxShadow: isSelected
-          ? '0 0 25px rgba(245, 158, 11, 0.6), 0 15px 30px rgba(0,0,0,0.5)'
-          : '0 8px 18px rgba(0,0,0,0.35), inset 0 1px 2px rgba(255,255,255,0.8)',
-      }}
     >
-      {/* Decorative Golden Corner Flourishes */}
+      {/* Received indicator tag */}
       {isJustReceived && (
-        <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[8px] sm:text-[9px] font-black uppercase tracking-wider rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-stone-900 shadow-md border border-white z-10 whitespace-nowrap">
-          Just In
+        <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider rounded-full bg-emerald-600 text-white shadow-sm z-20 whitespace-nowrap">
+          Received
         </span>
       )}
-      <div className="absolute top-1.5 left-1.5 w-2.5 h-2.5 border-t border-l border-amber-700/40 rounded-tl" />
-      <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 border-t border-r border-amber-700/40 rounded-tr" />
-      <div className="absolute bottom-1.5 left-1.5 w-2.5 h-2.5 border-b border-l border-amber-700/40 rounded-bl" />
-      <div className="absolute bottom-1.5 right-1.5 w-2.5 h-2.5 border-b border-r border-amber-700/40 rounded-br" />
 
-      {/* Top Header: Identity Name & Mini Icon */}
-      <div className="flex items-center justify-between text-stone-800">
-        <span className="font-serif font-black tracking-wider text-[11px] sm:text-xs uppercase">
+      {/* Top Header: Identity & Small Mark */}
+      <div className="flex items-center justify-between text-slate-200 border-b border-slate-700/60 pb-1.5">
+        <span className="font-mono font-bold tracking-tight text-[11px] sm:text-xs uppercase text-indigo-200">
           {card.name}
         </span>
         <div style={{ color: card.color }}>{getIcon(card.icon)}</div>
       </div>
 
-      {/* Center Seal / Motif */}
-      <div className="flex flex-col items-center justify-center my-auto">
+      {/* Center Motif / Stamp */}
+      <div className="flex flex-col items-center justify-center my-auto py-2">
         <div
-          className="rounded-full p-2.5 sm:p-3.5 mb-1 shadow-inner border border-white/60 flex items-center justify-center transition-transform group-hover:scale-110"
+          className="w-11 h-11 sm:w-13 sm:h-13 rounded-2xl flex items-center justify-center border border-slate-700/80 bg-slate-800/60 shadow-inner group-hover:scale-105 transition-transform"
           style={{
-            backgroundColor: `${card.color}15`,
             color: card.color,
           }}
         >
           {getIcon(card.icon)}
         </div>
-        <div className="text-[10px] sm:text-xs font-serif font-bold text-stone-700 tracking-wide text-center">
+        <div className="text-[11px] sm:text-xs font-bold text-slate-200 tracking-wide mt-2 text-center">
           {card.title.split(' ')[0]}
         </div>
       </div>
 
-      {/* Bottom Identity Label */}
-      <div className="flex items-center justify-between text-stone-600 text-[9px] sm:text-[10px] font-mono border-t border-stone-300/80 pt-1">
-        <span>PARCHI</span>
-        <span className="font-bold text-stone-800 uppercase">{card.name}</span>
+      {/* Bottom Footer: Chit Slip Label */}
+      <div className="flex items-center justify-between text-slate-400 text-[9px] sm:text-[10px] font-mono border-t border-slate-700/60 pt-1.5">
+        <span className="text-slate-400">PARCHI</span>
+        <span className="font-bold text-indigo-300">{card.name}</span>
       </div>
     </div>
   );

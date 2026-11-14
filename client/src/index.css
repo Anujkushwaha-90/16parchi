@@ -4,11 +4,11 @@
 
 @layer base {
   body {
-    @apply bg-[#080c0e] text-[#f7f4ec] font-sans antialiased overflow-x-hidden;
+    @apply bg-[#07090e] text-[#f8fafc] font-sans antialiased overflow-x-hidden;
     background-image: 
-      radial-gradient(circle at 50% 0%, rgba(13, 56, 39, 0.35) 0%, transparent 60%),
-      radial-gradient(circle at 100% 100%, rgba(217, 119, 6, 0.08) 0%, transparent 50%),
-      radial-gradient(circle at 0% 100%, rgba(5, 150, 105, 0.08) 0%, transparent 50%);
+      radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.18) 0%, transparent 60%),
+      radial-gradient(circle at 100% 100%, rgba(139, 92, 246, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 0% 100%, rgba(6, 182, 212, 0.08) 0%, transparent 50%);
     background-attachment: fixed;
     min-height: 100vh;
   }
@@ -16,62 +16,78 @@
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: #0d1217;
+  background: #090c12;
 }
 ::-webkit-scrollbar-thumb {
-  background: #24323d;
-  border-radius: 4px;
+  background: #1f2737;
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #d97706;
+  background: #6366f1;
 }
 
-/* Parchi Card Styling: authentic folded parchment with gold leaf edge */
-.parchi-card {
-  perspective: 1000px;
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
+/* Cyber Competitive Card Styling */
+.parchi-chit {
+  position: relative;
   user-select: none;
+  background: linear-gradient(165deg, #131926 0%, #0c1018 100%);
+  color: #f8fafc;
+  border: 1px solid #243047;
+  border-radius: 1rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.parchi-card:hover {
-  transform: translateY(-8px) scale(1.03);
+.parchi-chit:hover {
+  transform: translateY(-10px) scale(1.02);
+  border-color: #8b5cf6;
+  box-shadow: 0 20px 35px -5px rgba(139, 92, 246, 0.25), 0 0 0 1px #8b5cf6, inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
-.parchi-card.selected {
-  transform: translateY(-16px) scale(1.06);
-  box-shadow: 0 0 25px rgba(245, 158, 11, 0.6), 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+.parchi-chit.selected {
+  transform: translateY(-18px) scale(1.05);
+  border-color: #06b6d4;
+  box-shadow: 0 25px 40px -5px rgba(6, 182, 212, 0.35), 0 0 0 2px #06b6d4, inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
-/* Table Felt Texture */
+/* Esports Tournament Arena Felt Table */
 .table-felt {
-  background: radial-gradient(ellipse at center, #0e4431 0%, #08291d 75%, #051b13 100%);
-  box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.85), 0 20px 60px rgba(0, 0, 0, 0.95);
-  border: 12px solid #20170a;
-  outline: 2px solid rgba(217, 119, 6, 0.4);
+  background: radial-gradient(ellipse at center, #101726 0%, #090e17 75%, #05070c 100%);
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.9), 0 25px 50px rgba(0, 0, 0, 0.95);
+  border: 2px solid #25334c;
+  outline: 1px solid rgba(139, 92, 246, 0.3);
 }
 
-/* Gold Gradient Utilities */
-.gold-gradient-text {
-  background: linear-gradient(135deg, #fef3c7 0%, #f59e0b 50%, #d97706 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+/* Competitive Action Buttons */
+.btn-primary {
+  @apply px-6 py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-lg shadow-indigo-950/50 transition-all active:scale-95 flex items-center justify-center gap-2;
+}
+
+.btn-secondary {
+  @apply px-4 py-2.5 rounded-xl font-semibold text-xs bg-table-card hover:bg-white/5 border border-table-border text-stone-300 hover:text-white transition-all active:scale-95 flex items-center justify-center gap-2;
 }
 
 .gold-gradient-btn {
-  background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
-  color: #0b0f12;
+  background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+  color: #ffffff;
   font-weight: 700;
   transition: all 0.2s ease;
 }
 
 .gold-gradient-btn:hover {
-  background: linear-gradient(135deg, #fde68a 0%, #f59e0b 100%);
-  box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+  background: linear-gradient(135deg, #8b5cf6 0%, #4f46e5 100%);
+  box-shadow: 0 0 25px rgba(99, 102, 241, 0.4);
   transform: translateY(-1px);
+}
+
+.gold-gradient-text {
+  background: linear-gradient(135deg, #a78bfa 0%, #38bdf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 

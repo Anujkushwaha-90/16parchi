@@ -178,6 +178,28 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
+  const handleShareWhatsAppLobby = () => {
+    sound.playClick();
+    const link = `${window.location.origin}?room=${room.code}`;
+    const myName = user?.displayName || 'Dost';
+    const myId = user?.friendCode || user?.username || '';
+    
+    const text = `🃏 *16 PARCHI • LOBBY INVITATION* 🃏
+
+${myName} is inviting you to a live match of 16 Parchi!
+
+🔑 *Room Code:* ${room.code}
+👑 *Host Player ID:* ${myId}
+
+👇 *Direct Click to Join Table & Play Together:*
+${link}
+
+Jaldi aao, seat book karo! 👑⚡`;
+
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+    showToast('Opening WhatsApp with Invite...', 'success');
+  };
+
   const handleJoinSeat = async () => {
     if (!user) return;
     setJoiningSeat(true);
@@ -348,10 +370,17 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
             </button>
             <button
               onClick={handleShareLink}
-              title="Share Invite Link"
+              title="Copy Invite Link"
               className="p-2 rounded-xl bg-table-card border border-table-border hover:border-gold-400 text-stone-300 hover:text-gold-400 transition-colors"
             >
-              {copiedLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
+              {copiedLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={handleShareWhatsAppLobby}
+              title="Share on WhatsApp with Room & Player ID"
+              className="p-2 rounded-xl bg-emerald-950/70 border border-emerald-500/50 hover:bg-emerald-900 text-emerald-300 transition-colors cursor-pointer"
+            >
+              <Share2 className="w-4 h-4" />
             </button>
 
             {/* Deck preview button */}

@@ -65,19 +65,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             sound.playClick();
             onNavigate('dashboard');
           }}
-          className="flex items-center gap-3 cursor-pointer group"
+          className="flex items-center gap-3 cursor-pointer group select-none"
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-gold-400 to-amber-700 flex items-center justify-center shadow-gold-glow group-hover:scale-105 transition-transform border border-gold-300/40">
-            <span className="font-serif font-black text-table-dark text-lg tracking-tighter">16</span>
+          <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center text-stone-950 font-mono font-black text-base shadow-sm group-hover:bg-amber-400 transition-colors">
+            16
           </div>
           <div>
-            <div className="font-serif font-black text-lg tracking-wider text-ivory-100 flex items-center gap-1.5">
+            <div className="font-serif font-black text-base tracking-wider text-white flex items-center gap-1.5">
               <span>PARCHI</span>
-              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-emerald-900/60 border border-emerald-500/40 text-emerald-300 font-bold">
-                Online
+              <span className="text-[9px] uppercase font-mono px-1.5 py-0.2 rounded bg-emerald-950 border border-emerald-500/40 text-emerald-400 font-bold">
+                Live
               </span>
             </div>
-            <div className="text-[10px] text-stone-400 tracking-wider">Multiplayer Table</div>
+            <div className="text-[10px] text-stone-400 tracking-tight font-mono">Traditional Card Game</div>
           </div>
         </div>
 

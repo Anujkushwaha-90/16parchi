@@ -163,10 +163,17 @@ export const EternalLoveProfile: React.FC<EternalLoveProfileProps> = ({
     sound.playClick();
     const code = profile.friendCode || profile.username;
     const url = `${window.location.origin}/profile?code=${encodeURIComponent(code)}`;
-    const text = encodeURIComponent(
-      `💖 Check out ${profile.displayName}'s Eternal Love Royal Profile on 16 Parchi! 👑✨\nPlay together: ${url}`
-    );
-    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+    const text = `💖 *16 PARCHI • ETERNAL LOVE INVITATION* 💖
+
+${profile.displayName} has invited you to play 16 Parchi together!
+
+🆔 *Player Friend Code:* ${profile.friendCode || profile.username}
+✨ *Royalty:* 3D Sovereign Experience
+
+👇 *Click to Play Together & View Profile:*
+${url}`;
+
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   // Cupid Interaction

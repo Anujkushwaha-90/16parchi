@@ -114,10 +114,23 @@ export const PublicProfileScreen: React.FC<PublicProfileScreenProps> = ({
 
   const handleShareWhatsApp = () => {
     sound.playClick();
-    const text = encodeURIComponent(
-      `Check out ${profile?.displayName}'s royal player profile on 16 Parchi! 👑🏆\nPlay together: ${window.location.href}`
-    );
-    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+    const playLink = `${window.location.origin}/?code=${encodeURIComponent(profile?.friendCode || profile?.username || '')}`;
+    const myName = profile?.displayName || 'Player';
+    const myId = profile?.friendCode || `@${profile?.username}`;
+
+    const text = `👑 *16 PARCHI • CHALLENGE INVITATION* 👑
+
+Hey! ${myName} has challenged you to an authentic table game of 16 Parchi!
+
+🆔 *Player ID (Friend Code):* ${myId}
+🏆 *Stats:* ${profile?.gamesWon || 0} Wins (${profile?.gamesPlayed || 0} Matches Played)
+
+👇 *Click here to Play Together & Accept Challenge:*
+${playLink}
+
+Aao dekhein kisme kitna hai dum! 🃏⚡`;
+
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   if (loading && !profile) {
