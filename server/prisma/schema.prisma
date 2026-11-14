@@ -21,6 +21,8 @@ model User {
   secondPlaceCount Int      @default(0)
   thirdPlaceCount  Int      @default(0)
   fourthPlaceCount Int      @default(0)
+  winStreak        Int      @default(0)
+  maxWinStreak     Int      @default(0)
   isOnline         Boolean  @default(false)
   lastSeenAt       DateTime @default(now())
   isDeletionPending   Boolean   @default(false)
@@ -112,6 +114,8 @@ model GameRoom {
   customDeckJson  String?  // JSON string storing CustomDeckConfig if custom mode enabled
   gameStateJson   String?  // JSON string storing authoritative active game state
   turnTimeSeconds Int      @default(60)
+  matchBet        String?  @default("chai_samosa") // chai_samosa, whatsapp_status, voice_note_song, call_me_boss, treat_party, custom
+  customBetText   String?  // If matchBet is custom, stores the punishment text
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

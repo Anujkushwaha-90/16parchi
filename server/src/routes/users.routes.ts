@@ -89,6 +89,8 @@ router.get('/profile/view/:identifier', async (req, res: Response): Promise<void
         secondPlaceCount: true,
         thirdPlaceCount: true,
         fourthPlaceCount: true,
+        winStreak: true,
+        maxWinStreak: true,
         createdAt: true,
       },
     });
@@ -217,6 +219,8 @@ router.get('/:id/stats', requireAuth, async (req: AuthRequest, res: Response): P
         secondPlaceCount: true,
         thirdPlaceCount: true,
         fourthPlaceCount: true,
+        winStreak: true,
+        maxWinStreak: true,
         createdAt: true,
       },
     });

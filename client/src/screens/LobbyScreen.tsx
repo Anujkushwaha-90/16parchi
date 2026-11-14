@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext.js';
 import { sound } from '../services/sound.js';
 import { api } from '../services/api.js';
 import { GameRoom, CustomDeckConfig } from '../types/index.js';
+import { MATCH_BETS } from '../services/punishments.js';
 import { InviteFriendsModal } from '../components/Modals/InviteFriendsModal.js';
 import { UserProfileModal } from '../components/Modals/UserProfileModal.js';
 import { isVipUser } from '../utils/vip.js';
@@ -24,6 +25,7 @@ import {
   Layers,
   Settings,
   X,
+  Flame,
 } from 'lucide-react';
 
 interface LobbyScreenProps {
@@ -48,6 +50,8 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   const [showInviteModal, setShowInviteModal] = useState<boolean>(false);
   const [showDeckPreview, setShowDeckPreview] = useState<boolean>(false);
   const [showCapacityModal, setShowCapacityModal] = useState<boolean>(false);
+  const [showBetModal, setShowBetModal] = useState<boolean>(false);
+  const [customBetInput, setCustomBetInput] = useState<string>('');
   const [starting, setStarting] = useState<boolean>(false);
   const [joiningSeat, setJoiningSeat] = useState<boolean>(false);
   const [selectedLobbyProfile, setSelectedLobbyProfile] = useState<any>(null);
@@ -253,6 +257,23 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
     }
   };
 
+  const handleSelectBet = async (betId: string, customText?: string) => {
+    sound.playClick();
+    try {
+      const res = await api.updateRoomSettings(room.code, {
+        matchBet: betId,
+        customBetText: customText,
+      });
+      if (res.room) {
+        setRoom(res.room);
+        showToast('Match Shart updated!', 'success');
+        setShowBetModal(false);
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update shart', 'error');
+    }
+  };
+
   const handleStartGame = async () => {
     if (!allReady || totalPlayers !== maxPlayers) return;
     sound.playDeclare();
@@ -302,6 +323,16 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                 ? `CUSTOM DECK (${customConfig.items.length} WORDS)`
                 : `${room.cardTheme.toUpperCase()} THEME`}
             </span>
+            {/* Match Bet / Shart Badge */}
+            <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-950/80 border border-amber-500/50 text-amber-300 font-mono font-bold flex items-center gap-1 shadow">
+              <span>🔥 Shart:</span>
+              <span>
+                {MATCH_BETS.find((b) => b.id === (room.matchBet || 'chai_samosa'))?.emoji || '☕'}{' '}
+                {room.matchBet === 'custom' && room.customBetText
+                  ? room.customBetText
+                  : MATCH_BETS.find((b) => b.id === (room.matchBet || 'chai_samosa'))?.title || 'Chai-Samosa on Loser'}
+              </span>
+            </span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -346,6 +377,17 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
             >
               <Settings className="w-3.5 h-3.5 text-gold-400" />
               <span>Change Capacity ({maxPlayers})</span>
+            </button>
+          )}
+
+          {/* Host edit Shart / Bet button */}
+          {isHost && (
+            <button
+              onClick={() => setShowBetModal(true)}
+              className="px-3 py-2 rounded-xl border border-amber-500/50 bg-amber-950/20 hover:border-amber-400 text-xs font-bold text-amber-200 hover:text-amber-100 flex items-center gap-1.5 cursor-pointer shadow-sm"
+            >
+              <Flame className="w-3.5 h-3.5 text-amber-400" />
+              <span>Match Shart</span>
             </button>
           )}
 
@@ -473,6 +515,12 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                           alt="Player"
                           className="w-16 h-16 rounded-2xl border-2 border-gold-400/60 object-cover bg-emerald-950 mx-auto shadow-md"
                         />
+                      )}
+                      {/* Win Streak Fiery Aura Tag */}
+                      {(member.user?.winStreak || 0) >= 2 && (
+                        <span className="absolute -top-2.5 -left-2 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-orange-600 via-amber-500 to-red-500 text-white text-[9px] font-black shadow-lg flex items-center gap-0.5 border border-amber-300 animate-bounce z-10">
+                          🔥 {member.user.winStreak}W
+                        </span>
                       )}
                       {member.isReady ? (
                         <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow">
@@ -681,6 +729,85 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
             <div className="pt-2 text-center text-xs font-mono text-stone-400">
               Total {customConfig.items.reduce((sum, it) => sum + it.count, 0)} parchis in deck
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Shart / Loser Penalty Selection Modal */}
+      {showBetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg bg-table-surface border-2 border-amber-500/60 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-table-border pb-3">
+              <h3 className="text-base font-serif font-black text-ivory-100 flex items-center gap-2">
+                <span className="text-xl">🔥</span>
+                <span>Select Match Shart / Loser Penalty</span>
+              </h3>
+              <button
+                onClick={() => setShowBetModal(false)}
+                className="text-stone-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+              {MATCH_BETS.map((bet) => (
+                <button
+                  key={bet.id}
+                  onClick={() => {
+                    if (bet.id === 'custom') {
+                      if (!customBetInput.trim()) {
+                        showToast('Please type custom shart below first!', 'info');
+                        return;
+                      }
+                      handleSelectBet('custom', customBetInput.trim());
+                    } else {
+                      handleSelectBet(bet.id);
+                    }
+                  }}
+                  className={`w-full p-3 rounded-2xl border text-left transition-all flex items-start gap-3 cursor-pointer ${
+                    (room?.matchBet || 'chai_samosa') === bet.id
+                      ? 'border-amber-400 bg-amber-500/20 shadow-gold-glow'
+                      : 'border-table-border bg-table-card hover:border-amber-400/50 text-stone-300'
+                  }`}
+                >
+                  <span className="text-2xl">{bet.emoji}</span>
+                  <div className="flex-1">
+                    <div className="text-xs font-bold text-ivory-100">{bet.title}</div>
+                    <div className="text-[11px] text-stone-400 mt-0.5">{bet.description}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Custom Input */}
+            <div className="pt-2 border-t border-table-border">
+              <label className="text-[10px] text-stone-400 uppercase font-mono block mb-1">
+                Or Type Custom Shart:
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  maxLength={100}
+                  value={customBetInput}
+                  onChange={(e) => setCustomBetInput(e.target.value)}
+                  placeholder="e.g. 20 pushups or buy Momos..."
+                  className="flex-1 px-3 py-2 rounded-xl bg-black/40 border border-table-border text-xs text-ivory-100 focus:outline-none focus:border-amber-400"
+                />
+                <button
+                  onClick={() => {
+                    if (!customBetInput.trim()) {
+                      showToast('Enter custom shart text', 'error');
+                      return;
+                    }
+                    handleSelectBet('custom', customBetInput.trim());
+                  }}
+                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-table-dark font-black text-xs"
+                >
+                  Set Custom
+                </button>
+              </div>
             </div>
           </div>
         </div>

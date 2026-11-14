@@ -185,6 +185,7 @@ export class GameManager {
       avatarUrl: string;
       isBot: boolean;
       seatIndex: number;
+      winStreak?: number;
     }> = [];
 
     // Ensure maxPlayers seats
@@ -198,6 +199,7 @@ export class GameManager {
           avatarUrl: member.user.avatarUrl,
           isBot: member.isBot,
           seatIndex: seatIdx,
+          winStreak: (member.user as any)?.winStreak || 0,
         });
       } else if (member && member.isBot) {
         players.push({
@@ -207,6 +209,7 @@ export class GameManager {
           avatarUrl: member.botAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=Bot${seatIdx + 1}`,
           isBot: true,
           seatIndex: seatIdx,
+          winStreak: 0,
         });
       } else {
         // Auto-fill empty seat with bot
@@ -217,6 +220,7 @@ export class GameManager {
           avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=Bot${seatIdx + 1}`,
           isBot: true,
           seatIndex: seatIdx,
+          winStreak: 0,
         });
       }
     }
@@ -253,7 +257,9 @@ export class GameManager {
       theme,
       turnTimeSeconds,
       customDeckConfig,
-      maxPlayers
+      maxPlayers,
+      (room as any).matchBet || 'chai_samosa',
+      (room as any).customBetText || null
     );
 
     game.setCallbacks(
@@ -355,14 +361,33 @@ export class GameManager {
       // Update player statistics in Neon PostgreSQL
       for (const rankItem of game.rankings) {
         if (!rankItem.isBot && rankItem.userId) {
+          const user = await prisma.user.findUnique({
+            where: { id: rankItem.userId },
+            select: { winStreak: true, maxWinStreak: true },
+          });
+
+          const currentStreak = user?.winStreak || 0;
+          const currentMax = user?.maxWinStreak || 0;
+
           const updateData: any = {
             gamesPlayed: { increment: 1 },
           };
 
-          if (rankItem.rank === 1) updateData.gamesWon = { increment: 1 };
-          else if (rankItem.rank === 2) updateData.secondPlaceCount = { increment: 1 };
-          else if (rankItem.rank === 3) updateData.thirdPlaceCount = { increment: 1 };
-          else if (rankItem.rank === 4) updateData.fourthPlaceCount = { increment: 1 };
+          if (rankItem.rank === 1) {
+            updateData.gamesWon = { increment: 1 };
+            const newStreak = currentStreak + 1;
+            updateData.winStreak = newStreak;
+            updateData.maxWinStreak = Math.max(currentMax, newStreak);
+          } else {
+            if (rankItem.rank === 2) updateData.secondPlaceCount = { increment: 1 };
+            else if (rankItem.rank === 3) updateData.thirdPlaceCount = { increment: 1 };
+            else if (rankItem.rank === 4) updateData.fourthPlaceCount = { increment: 1 };
+
+            // Reset win streak on loss (placement 3 or 4)
+            if (rankItem.rank >= 3) {
+              updateData.winStreak = 0;
+            }
+          }
 
           await prisma.user.update({
             where: { id: rankItem.userId },

@@ -8,6 +8,7 @@ import { VipLoveAura, VipBadgeTag } from '../components/VipLoveAura.js';
 import { isVipUser } from '../utils/vip.js';
 import { isDuoMember, isDuoBoy, isDuoGirl, DuoBadgeTag } from '../utils/duo.js';
 import { DynamicDuoHandholdModal } from '../components/DynamicDuo/DynamicDuoHandholdModal.js';
+import { PlayerAvatar } from '../components/PlayerAvatar.js';
 import {
   Trophy,
   Swords,
@@ -44,6 +45,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [copiedCode, setCopiedCode] = useState(false);
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [isDuoModalOpen, setIsDuoModalOpen] = useState(false);
+  const [isQuickMatching, setIsQuickMatching] = useState(false);
 
   useEffect(() => {
     const fetchInvites = async () => {
@@ -79,6 +81,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     }
     sound.playClick();
     onJoinRoomByCode(clean);
+  };
+
+  const handleQuickMatch = async () => {
+    try {
+      setIsQuickMatching(true);
+      sound.playClick();
+      const res = await api.quickMatch();
+      if (res.success && res.roomCode) {
+        showToast(res.message || '⚡ Quick match ready!', 'gold');
+        onJoinRoomByCode(res.roomCode);
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Could not start quick match', 'error');
+    } finally {
+      setIsQuickMatching(false);
+    }
   };
 
   return (
@@ -149,8 +167,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             {isVip ? (
               <div className="relative group">
                 <VipLoveAura size="lg">
-                  <img
+                  <PlayerAvatar
                     src={user.avatarUrl}
+                    name={user.displayName}
                     alt={user.displayName}
                     className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-white/60 object-cover bg-stone-900 shadow-md cursor-pointer"
                     onClick={() => {
@@ -179,8 +198,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 }}
                 title="Dynamic Duo • Tap to open 3D Universe"
               >
-                <img
+                <PlayerAvatar
                   src={user.avatarUrl}
+                  name={user.displayName}
                   alt={user.displayName}
                   className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 object-cover bg-stone-900 transition-transform group-hover:scale-105 ${
                     isBoy
@@ -198,8 +218,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               </div>
             ) : (
               <div className="relative group">
-                <img
+                <PlayerAvatar
                   src={user.avatarUrl}
+                  name={user.displayName}
                   alt={user.displayName}
                   onClick={() => {
                     sound.playClick();
@@ -284,6 +305,21 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Win Streak Pill */}
+          {(user.winStreak || 0) > 0 && (
+            <div className="flex items-center gap-3 bg-gradient-to-r from-orange-950/80 to-amber-950/80 px-4 py-3 rounded-2xl border border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.3)] w-full sm:w-auto justify-between sm:justify-start animate-pulse">
+              <div className="p-2.5 rounded-xl bg-orange-500/20 text-orange-400 text-xl">
+                🔥
+              </div>
+              <div>
+                <div className="text-xs text-orange-300 font-semibold uppercase tracking-wider">Active Streak</div>
+                <div className="text-lg font-black text-amber-200">
+                  {user.winStreak} {user.winStreak === 1 ? 'Win' : 'Wins in a row'}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Stats Row */}
@@ -348,6 +384,40 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </button>
         </div>
       )}
+
+      {/* ⚡ Quick Match Hero Section (Play in 5s) */}
+      <div className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-r from-amber-950/80 via-yellow-950/40 to-emerald-950/80 border-2 border-gold-400/60 shadow-[0_0_35px_rgba(245,158,11,0.25)] flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="flex items-center gap-5">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-stone-950 flex items-center justify-center font-black text-3xl shadow-lg shrink-0 animate-bounce">
+            ⚡
+          </div>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-gold-400 text-stone-950">
+                Instant Play
+              </span>
+              <span className="text-xs text-amber-300 font-semibold flex items-center gap-1">
+                ⏱️ Starts in &lt; 5 seconds
+              </span>
+            </div>
+            <h3 className="text-xl sm:text-2xl font-serif font-black text-white">
+              Quick Match (Play in 5s)
+            </h3>
+            <p className="text-xs sm:text-sm text-stone-300 max-w-xl mt-0.5">
+              No waiting for friends! Instantly jump into a live table with Bollywood deck & intelligent AI players.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={handleQuickMatch}
+          disabled={isQuickMatching}
+          className="w-full md:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:to-yellow-300 text-stone-950 font-black text-sm sm:text-base shadow-[0_0_30px_rgba(245,158,11,0.6)] transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 cursor-pointer shrink-0 disabled:opacity-50"
+        >
+          <span>{isQuickMatching ? 'Finding Match...' : '⚡ PLAY NOW (5s)'}</span>
+          <ArrowRight className="w-5 h-5" />
+        </button>
+      </div>
 
       {/* Room Action Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

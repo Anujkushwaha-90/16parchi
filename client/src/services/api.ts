@@ -138,17 +138,30 @@ class ApiService {
     cardTheme: string = 'royals',
     turnTimeSeconds: number = 20,
     maxPlayers: number = 4,
-    customDeck?: any
+    customDeck?: any,
+    matchBet: string = 'chai_samosa',
+    customBetText?: string
   ) {
     return this.request('/rooms', {
       method: 'POST',
-      body: JSON.stringify({ cardTheme, turnTimeSeconds, maxPlayers, customDeck }),
+      body: JSON.stringify({ cardTheme, turnTimeSeconds, maxPlayers, customDeck, matchBet, customBetText }),
     });
+  }
+
+  public quickMatch(): Promise<{ success: boolean; roomCode: string; isStarted: boolean; matchId?: string; message?: string }> {
+    return this.request('/rooms/quick-match', { method: 'POST' });
   }
 
   public updateRoomSettings(
     code: string,
-    settings: { maxPlayers?: number; customDeck?: any; cardTheme?: string; turnTimeSeconds?: number }
+    settings: {
+      maxPlayers?: number;
+      customDeck?: any;
+      cardTheme?: string;
+      turnTimeSeconds?: number;
+      matchBet?: string;
+      customBetText?: string;
+    }
   ) {
     return this.request(`/rooms/${code}/settings`, {
       method: 'PATCH',

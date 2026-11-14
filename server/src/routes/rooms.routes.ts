@@ -22,7 +22,7 @@ function generateRoomCode(): string {
 router.post('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!.id;
-    const { cardTheme = 'royals', turnTimeSeconds = 60, maxPlayers = 4, customDeck } = req.body;
+    const { cardTheme = 'royals', turnTimeSeconds = 60, maxPlayers = 4, customDeck, matchBet = 'chai_samosa', customBetText } = req.body;
 
     const numPlayers = parseInt(maxPlayers as any, 10);
     if (isNaN(numPlayers) || numPlayers < 4 || numPlayers > 10) {
@@ -51,6 +51,8 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response): Promise<v
         cardTheme: customDeck && customDeck.isCustom ? 'custom' : cardTheme,
         customDeckJson: customDeck && customDeck.isCustom ? JSON.stringify(customDeck) : null,
         turnTimeSeconds,
+        matchBet: matchBet || 'chai_samosa',
+        customBetText: customBetText || null,
         members: {
           create: {
             userId,
@@ -79,6 +81,151 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response): Promise<v
   } catch (err) {
     console.error('Error creating room:', err);
     res.status(500).json({ error: 'Failed to create room' });
+  }
+});
+
+/**
+ * ⚡ Quick Match: Instantly jump into a match in 5s!
+ * 1. Looks for an open LOBBY room that has free seats and was created in the last 15 minutes.
+ * 2. If found, joins that room.
+ * 3. If no open room, creates a 4-player room, auto-fills seats 1, 2, 3 with ready AI Bots,
+ *    and immediately starts the game!
+ */
+router.post('/quick-match', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+
+    // 1. Check for an existing joinable lobby
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    const candidateRooms = await prisma.gameRoom.findMany({
+      where: {
+        status: 'LOBBY',
+        createdAt: { gte: fifteenMinutesAgo },
+      },
+      include: {
+        members: {
+          include: {
+            user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+          },
+          orderBy: { seatIndex: 'asc' },
+        },
+        host: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    });
+
+    const openRoom = candidateRooms.find((r) => {
+      const maxP = r.maxPlayers || 4;
+      const isAlreadyMember = r.members.some((m) => m.userId === userId);
+      return !isAlreadyMember && r.members.length < maxP;
+    });
+
+    if (openRoom) {
+      // Find lowest free seat index
+      const maxP = openRoom.maxPlayers || 4;
+      const occupied = new Set(openRoom.members.map((m) => m.seatIndex));
+      let freeSeat = 0;
+      for (let i = 0; i < maxP; i++) {
+        if (!occupied.has(i)) {
+          freeSeat = i;
+          break;
+        }
+      }
+
+      await prisma.roomMember.create({
+        data: {
+          roomId: openRoom.id,
+          userId,
+          seatIndex: freeSeat,
+          isReady: true,
+          isBot: false,
+        },
+      });
+
+      GameManager.getInstance().broadcastToRoom(openRoom.id, 'lobby:update');
+
+      res.json({
+        success: true,
+        roomCode: openRoom.code,
+        isStarted: false,
+        message: 'Joined open table!',
+      });
+      return;
+    }
+
+    // 2. No open room found: Create an instant 4-player match with AI bots
+    let code = generateRoomCode();
+    while (await prisma.gameRoom.findUnique({ where: { code } })) {
+      code = generateRoomCode();
+    }
+
+    const quickBots = [
+      { name: 'Chatur Bot', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Chatur' },
+      { name: 'Munna Bot', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Munna' },
+      { name: 'Circuit Bot', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Circuit' },
+    ];
+
+    const room = await prisma.gameRoom.create({
+      data: {
+        code,
+        hostId: userId,
+        status: 'LOBBY',
+        maxPlayers: 4,
+        cardTheme: 'bollywood', // Fun desi theme by default for quick matches!
+        turnTimeSeconds: 45,
+        members: {
+          create: [
+            {
+              userId,
+              seatIndex: 0,
+              isReady: true,
+              isBot: false,
+            },
+            {
+              seatIndex: 1,
+              isReady: true,
+              isBot: true,
+              botName: quickBots[0].name,
+              botAvatar: quickBots[0].avatar,
+            },
+            {
+              seatIndex: 2,
+              isReady: true,
+              isBot: true,
+              botName: quickBots[1].name,
+              botAvatar: quickBots[1].avatar,
+            },
+            {
+              seatIndex: 3,
+              isReady: true,
+              isBot: true,
+              botName: quickBots[2].name,
+              botAvatar: quickBots[2].avatar,
+            },
+          ],
+        },
+      },
+    });
+
+    // Start match immediately!
+    const gameManager = GameManager.getInstance();
+    const game = await gameManager.createAndStartGame(
+      room.id,
+      'bollywood',
+      45
+    );
+
+    res.json({
+      success: true,
+      roomCode: room.code,
+      isStarted: true,
+      matchId: game.matchId,
+      message: '⚡ Instant match started!',
+    });
+  } catch (err: any) {
+    console.error('Quick match error:', err);
+    res.status(500).json({ error: err.message || 'Failed to start quick match' });
   }
 });
 
@@ -483,6 +630,72 @@ router.post('/:code/bot', requireAuth, async (req: AuthRequest, res: Response): 
   } catch (err) {
     console.error('Error modifying bot:', err);
     res.status(500).json({ error: 'Failed to modify bot' });
+  }
+});
+
+/**
+ * Update room settings (host only)
+ */
+router.patch('/:code/settings', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { code } = req.params;
+    const userId = req.user!.id;
+    const { maxPlayers, cardTheme, turnTimeSeconds, customDeck, matchBet, customBetText } = req.body;
+
+    const room = await prisma.gameRoom.findUnique({
+      where: { code: code.toUpperCase() },
+      include: { members: true },
+    });
+
+    if (!room) {
+      res.status(404).json({ error: 'Room not found' });
+      return;
+    }
+
+    if (room.hostId !== userId) {
+      res.status(403).json({ error: 'Only room host can update settings' });
+      return;
+    }
+
+    if (room.status !== 'LOBBY') {
+      res.status(400).json({ error: 'Cannot update settings while game is active' });
+      return;
+    }
+
+    const updateData: any = {};
+    if (typeof maxPlayers === 'number' && maxPlayers >= 4 && maxPlayers <= 10) {
+      if (maxPlayers >= room.members.length) {
+        updateData.maxPlayers = maxPlayers;
+      }
+    }
+    if (cardTheme) updateData.cardTheme = cardTheme;
+    if (typeof turnTimeSeconds === 'number') updateData.turnTimeSeconds = turnTimeSeconds;
+    if (customDeck !== undefined) {
+      updateData.customDeckJson = customDeck ? JSON.stringify(customDeck) : null;
+    }
+    if (matchBet !== undefined) updateData.matchBet = matchBet;
+    if (customBetText !== undefined) updateData.customBetText = customBetText;
+
+    const updated = await prisma.gameRoom.update({
+      where: { id: room.id },
+      data: updateData,
+      include: {
+        host: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+        members: {
+          include: {
+            user: { select: { id: true, username: true, displayName: true, avatarUrl: true, friendCode: true, winStreak: true } },
+          },
+          orderBy: { seatIndex: 'asc' },
+        },
+      },
+    });
+
+    GameManager.getInstance().broadcastToRoom(room.id, 'lobby:update');
+
+    res.json({ success: true, room: updated });
+  } catch (err: any) {
+    console.error('Error updating room settings:', err);
+    res.status(500).json({ error: err.message || 'Failed to update settings' });
   }
 });
 

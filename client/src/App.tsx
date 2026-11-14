@@ -48,6 +48,28 @@ function MainApp() {
         setIsAuthModalOpen(true);
       }
     }
+
+    // Listen to browser Back / Forward buttons (popstate)
+    const handlePopState = () => {
+      const currentParams = new URLSearchParams(window.location.search);
+      const curProfile = currentParams.get('code') || currentParams.get('user') || currentParams.get('profile') || currentParams.get('id');
+      const curRoom = currentParams.get('room');
+
+      if (curProfile) {
+        setActiveProfileCode(curProfile);
+        setCurrentScreen('profile');
+      } else if (curRoom) {
+        setActiveRoomCode(curRoom.toUpperCase());
+        setCurrentScreen(user ? 'lobby' : 'landing');
+      } else {
+        // No query param in URL: if back pressed, return cleanly to dashboard or landing
+        setActiveProfileCode('');
+        setCurrentScreen(user ? 'dashboard' : 'landing');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, [user]);
 
   // If socket reveals an active or dealing game, auto switch to table
@@ -79,7 +101,17 @@ function MainApp() {
       return;
     }
     if (screen === 'profile') {
-      setActiveProfileCode(extraParam || user?.friendCode || user?.username || '');
+      const code = extraParam || user?.friendCode || user?.username || '';
+      setActiveProfileCode(code);
+      if (typeof window !== 'undefined') {
+        const newUrl = code ? `/?code=${encodeURIComponent(code)}` : '/';
+        window.history.pushState({ screen: 'profile', code }, '', newUrl);
+      }
+    } else {
+      // Clear URL params (like ?code=... or ?profile=...) so browser refresh/back won't get stuck on profile
+      if (typeof window !== 'undefined' && window.location.search) {
+        window.history.pushState({ screen }, '', window.location.pathname);
+      }
     }
     setCurrentScreen(screen);
   };
@@ -138,7 +170,10 @@ function MainApp() {
           <GameTableScreen
             roomCode={activeRoomCode || undefined}
             onMatchFinished={() => setCurrentScreen('rankings')}
-            onExitToLobby={() => setCurrentScreen('lobby')}
+            onExitToLobby={() => {
+              setActiveRoomCode('');
+              setCurrentScreen('dashboard');
+            }}
           />
         )}
 

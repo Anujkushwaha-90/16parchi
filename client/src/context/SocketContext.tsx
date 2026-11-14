@@ -5,7 +5,19 @@ import { useToast } from './ToastContext.js';
 import { PublicGameState, PrivatePlayerState } from '../types/index.js';
 import { sound } from '../services/sound.js';
 import { api } from '../services/api.js';
+import { tauntService, THROW_ITEMS } from '../services/taunts.js';
 import confetti from 'canvas-confetti';
+
+export interface TableTauntEvent {
+  id: string;
+  senderId: string;
+  senderSeatIndex: number;
+  senderName: string;
+  tauntId: string;
+  type: 'voice' | 'throw';
+  targetSeatIndex?: number;
+  timestamp: number;
+}
 
 interface ChatMessage {
   id: string;
@@ -22,12 +34,14 @@ interface SocketContextType {
   publicState: PublicGameState | null;
   privateState: PrivatePlayerState | null;
   chatMessages: ChatMessage[];
+  latestTaunt: TableTauntEvent | null;
   currentRoomId: string | null;
   joinRoomSocket: (roomId: string) => void;
   leaveRoomSocket: (roomId: string) => void;
   passCard: (cardId: string) => void;
   declareWin: () => void;
   sendChatMessage: (message: string) => void;
+  sendTaunt: (tauntId: string, type?: 'voice' | 'throw', targetSeatIndex?: number) => void;
   requestRematch: () => void;
   resetGameState: () => void;
   setGameStates: (publicState: PublicGameState | null, privateState: PrivatePlayerState | null) => void;
@@ -57,15 +71,78 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [publicState, setPublicState] = useState<PublicGameState | null>(null);
   const [privateState, setPrivateState] = useState<PrivatePlayerState | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [latestTaunt, setLatestTaunt] = useState<TableTauntEvent | null>(null);
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
   const currentRoomIdRef = useRef<string | null>(null);
 
   const prevCardsCountRef = useRef<number>(4);
   const lastActiveSeatRef = useRef<number>(-1);
+  const celebratedMatchIdRef = useRef<string | null>(null);
+  const celebratedPersonalWinMatchRef = useRef<string | null>(null);
+  const prevCanDeclareRef = useRef<boolean>(false);
+
+  const triggerVictoryCelebration = useCallback((particleCount = 120) => {
+    confetti({
+      particleCount,
+      spread: 85,
+      origin: { y: 0.6 },
+      colors: ['#f59e0b', '#fbbf24', '#10b981', '#ffffff'],
+    });
+    setTimeout(() => {
+      confetti({
+        particleCount: Math.round(particleCount * 0.6),
+        angle: 60,
+        spread: 60,
+        origin: { x: 0.1, y: 0.65 },
+        colors: ['#f59e0b', '#fbbf24', '#10b981', '#ffffff'],
+      });
+      confetti({
+        particleCount: Math.round(particleCount * 0.6),
+        angle: 120,
+        spread: 60,
+        origin: { x: 0.9, y: 0.65 },
+        colors: ['#f59e0b', '#fbbf24', '#10b981', '#ffffff'],
+      });
+    }, 180);
+  }, []);
+
+  const mergePublicState = useCallback(
+    (prev: PublicGameState | null, next: PublicGameState): PublicGameState => {
+      if (!prev || next.matchId !== prev.matchId) return next;
+      if (next.status === 'FINISHED' && prev.status !== 'FINISHED') return next;
+      if (prev.status === 'FINISHED' && next.status !== 'FINISHED') return prev;
+      if (next.turnNumber < prev.turnNumber) return prev;
+      if (
+        next.turnNumber === prev.turnNumber &&
+        (next.rankings?.length || 0) < (prev.rankings?.length || 0)
+      ) {
+        return prev;
+      }
+      return next;
+    },
+    []
+  );
+
+  const handleStateSideEffects = useCallback((state: PublicGameState) => {
+    if (state.status === 'ACTIVE' && lastActiveSeatRef.current !== state.activeSeat) {
+      lastActiveSeatRef.current = state.activeSeat;
+      sound.playTick();
+    }
+
+    if (
+      state.status === 'FINISHED' &&
+      state.rankings.length > 0 &&
+      celebratedMatchIdRef.current !== state.matchId
+    ) {
+      celebratedMatchIdRef.current = state.matchId;
+      triggerVictoryCelebration(100);
+      sound.playWin();
+    }
+  }, [triggerVictoryCelebration]);
 
   useEffect(() => {
     const token = localStorage.getItem('parchi_token');
-    if (!user || !token) {
+    if (!user?.id || !token) {
       if (socket) {
         socket.disconnect();
         setSocket(null);
@@ -100,46 +177,78 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Handle public game state updates
     s.on('gameState:public', (newState: PublicGameState) => {
-      setPublicState(newState);
-
-      // Play turn sound when active seat changes
-      if (newState.status === 'ACTIVE' && lastActiveSeatRef.current !== newState.activeSeat) {
-        lastActiveSeatRef.current = newState.activeSeat;
-        sound.playTick();
-      }
-
-      // Check if match concluded with a win
-      if (newState.status === 'FINISHED' && newState.rankings.length > 0) {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ['#f59e0b', '#fbbf24', '#10b981', '#ffffff'],
-        });
-        sound.playWin();
-      }
+      setPublicState((prev) => mergePublicState(prev, newState));
+      handleStateSideEffects(newState);
     });
 
     // Handle private player hand updates
     s.on('gameState:private', (newPrivateState: PrivatePlayerState) => {
+      const mySeat = newPrivateState.seats[newPrivateState.mySeatIndex];
+
       // Check if received a new card
       if (
         newPrivateState.myHand.length > prevCardsCountRef.current &&
-        newPrivateState.status === 'ACTIVE'
+        newPrivateState.status === 'ACTIVE' &&
+        mySeat?.finishedRank === null
       ) {
         sound.playCardReceive();
         showToast('You received a new parchi slip!', 'info');
       }
       prevCardsCountRef.current = newPrivateState.myHand.length;
 
-      setPrivateState(newPrivateState);
+      setPrivateState((prev) => {
+        if (!prev || newPrivateState.matchId !== prev.matchId) return newPrivateState;
+        if (newPrivateState.status === 'FINISHED' && prev.status !== 'FINISHED') return newPrivateState;
+        if (prev.status === 'FINISHED' && newPrivateState.status !== 'FINISHED') return prev;
+        if (newPrivateState.turnNumber < prev.turnNumber) return prev;
+        return newPrivateState;
+      });
 
-      // If user has 4 of a kind, alert with declare sound!
-      const mySeat = newPrivateState.seats[newPrivateState.mySeatIndex];
-      if (newPrivateState.canDeclare && mySeat && mySeat.finishedRank === null) {
+      // Keep publicState synced from privateState as well so UI never drifts if a room broadcast was missed
+      const {
+        mySeatIndex: _mySeatIndex,
+        myHand: _myHand,
+        canPass: _canPass,
+        canDeclare: _canDeclare,
+        isMyTurn: _isMyTurn,
+        lastReceivedCardId: _lastReceivedCardId,
+        ...derivedPublicState
+      } = newPrivateState;
+      setPublicState((prev) => mergePublicState(prev, derivedPublicState));
+      handleStateSideEffects(derivedPublicState);
+
+      // Celebrate immediately when the player completes 4 identical parchis (rank 1..3), even while match continues
+      if (
+        mySeat?.finishedRank !== null &&
+        mySeat?.finishedRank !== undefined &&
+        mySeat.finishedRank <= 3 &&
+        celebratedPersonalWinMatchRef.current !== newPrivateState.matchId
+      ) {
+        celebratedPersonalWinMatchRef.current = newPrivateState.matchId;
+        sound.playDeclare();
+        sound.playWin();
+        triggerVictoryCelebration(140);
+        const rankLabel =
+          mySeat.finishedRank === 1
+            ? '1st Place 🏆'
+            : mySeat.finishedRank === 2
+            ? '2nd Place 🥈'
+            : '3rd Place 🥉';
+        showToast(`4 identical parchis complete! You finished in ${rankLabel}!`, 'gold', '16 PARCHI!');
+      }
+
+      // If user has 4 of a kind in an active game, alert with declare sound on transition
+      const isDeclarable = Boolean(
+        newPrivateState.status === 'ACTIVE' &&
+          newPrivateState.canDeclare &&
+          mySeat &&
+          mySeat.finishedRank === null
+      );
+      if (isDeclarable && !prevCanDeclareRef.current) {
         sound.playDeclare();
         showToast('🎉 You have 4 identical parchis! DECLARE NOW!', 'gold', 'PARCHI BAN GAYI!');
       }
+      prevCanDeclareRef.current = isDeclarable;
     });
 
     s.on('game:error', (data: { message: string }) => {
@@ -150,15 +259,34 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setChatMessages((prev) => [...prev.slice(-30), msg]);
     });
 
+    s.on('table:taunt', (event: TableTauntEvent) => {
+      setLatestTaunt(event);
+      // Sender plays audio immediately inside click handler for instant user-gesture playback
+      if (event.senderId !== user?.id) {
+        if (event.type === 'voice') {
+          tauntService.playVoiceTaunt(event.tauntId);
+        } else if (event.type === 'throw') {
+          const item = THROW_ITEMS.find((t) => t.id === event.tauntId);
+          if (item) {
+            tauntService.playThrowSfx(item.sfx);
+          }
+        }
+      }
+    });
+
     s.on('game:resetToLobby', () => {
       setPublicState(null);
       setPrivateState(null);
+      prevCardsCountRef.current = 4;
+      lastActiveSeatRef.current = -1;
+      prevCanDeclareRef.current = false;
+      celebratedPersonalWinMatchRef.current = null;
       showToast('Host returned game to lobby.', 'info');
     });
 
     s.on('friend:request_received', (data: any) => {
       showToast(`New friend request from ${data?.user?.displayName || 'a player'}!`, 'info');
-      try { sound.playTick(); } catch {}
+      try { sound.playTick(); } catch { }
     });
 
     setSocket(s);
@@ -166,7 +294,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => {
       s.disconnect();
     };
-  }, [user]);
+  }, [user?.id, mergePublicState, handleStateSideEffects, triggerVictoryCelebration]);
 
   const joinRoomSocket = useCallback(
     (roomId: string) => {
@@ -186,6 +314,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       currentRoomIdRef.current = null;
       setPublicState(null);
       setPrivateState(null);
+      prevCardsCountRef.current = 4;
+      lastActiveSeatRef.current = -1;
+      prevCanDeclareRef.current = false;
+      celebratedPersonalWinMatchRef.current = null;
       if (socket && socket.connected) {
         socket.emit('room:leave', { roomId });
       }
@@ -217,6 +349,19 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     [socket, currentRoomId]
   );
 
+  const sendTaunt = useCallback(
+    (tauntId: string, type: 'voice' | 'throw' = 'voice', targetSeatIndex?: number) => {
+      if (!socket || !currentRoomId) return;
+      socket.emit('table:taunt', {
+        roomId: currentRoomId,
+        tauntId,
+        type,
+        targetSeatIndex,
+      });
+    },
+    [socket, currentRoomId]
+  );
+
   const requestRematch = useCallback(() => {
     if (!socket || !currentRoomId) return;
     socket.emit('game:rematch', { roomId: currentRoomId });
@@ -225,39 +370,28 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const resetGameState = useCallback(() => {
     setPublicState(null);
     setPrivateState(null);
+    prevCardsCountRef.current = 4;
+    lastActiveSeatRef.current = -1;
+    prevCanDeclareRef.current = false;
+    celebratedPersonalWinMatchRef.current = null;
   }, []);
 
   const setGameStates = useCallback(
     (pub: PublicGameState | null, priv: PrivatePlayerState | null) => {
       if (pub) {
-        setPublicState((prev) => {
-          if (!prev) return pub;
-          // Never roll back to an older turn number from out-of-order poll responses
-          if (
-            pub.matchId === prev.matchId &&
-            pub.status === prev.status &&
-            pub.turnNumber < prev.turnNumber
-          ) {
-            return prev;
-          }
-          return pub;
-        });
+        setPublicState((prev) => mergePublicState(prev, pub));
       }
       if (priv) {
         setPrivateState((prev) => {
-          if (!prev) return priv;
-          if (
-            priv.matchId === prev.matchId &&
-            priv.status === prev.status &&
-            priv.turnNumber < prev.turnNumber
-          ) {
-            return prev;
-          }
+          if (!prev || priv.matchId !== prev.matchId) return priv;
+          if (priv.status === 'FINISHED' && prev.status !== 'FINISHED') return priv;
+          if (prev.status === 'FINISHED' && priv.status !== 'FINISHED') return prev;
+          if (priv.turnNumber < prev.turnNumber) return prev;
           return priv;
         });
       }
     },
-    []
+    [mergePublicState]
   );
 
   const syncGameState = useCallback(
@@ -284,12 +418,14 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         publicState,
         privateState,
         chatMessages,
+        latestTaunt,
         currentRoomId,
         joinRoomSocket,
         leaveRoomSocket,
         passCard,
         declareWin,
         sendChatMessage,
+        sendTaunt,
         requestRematch,
         resetGameState,
         setGameStates,

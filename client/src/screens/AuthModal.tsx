@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext.js';
 import { useToast } from '../context/ToastContext.js';
 import { sound } from '../services/sound.js';
-import { X, Crown, ShieldCheck, Sparkles, Loader2, ArrowRight, User } from 'lucide-react';
+import { X, Crown, ShieldCheck, Sparkles, Loader2 } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -11,50 +11,11 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => {
-  const { loginWithGoogle, loginWithGoogleRedirect, loginWithDev } = useAuth();
+  const { loginWithGoogle, loginWithGoogleRedirect } = useAuth();
   const { showToast } = useToast();
   const [submitting, setSubmitting] = useState(false);
-  const [guestName, setGuestName] = useState('');
 
   if (!isOpen) return null;
-
-  const handleInstantGuestLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanName = guestName.trim();
-    if (!cleanName) {
-      showToast('Please enter your nickname or name', 'info');
-      return;
-    }
-    setSubmitting(true);
-    sound.playClick();
-    try {
-      const cleanUsername = cleanName.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase() || 'player';
-      await loginWithDev(cleanUsername, cleanName, cleanName);
-      showToast(`Welcome to 16 Parchi, ${cleanName}! 👑`, 'success');
-      onSuccess?.();
-      onClose();
-    } catch (err: any) {
-      showToast(err?.message || 'Login failed. Please try again.', 'error');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleQuickAvatar = async (name: string, role: string) => {
-    setSubmitting(true);
-    sound.playClick();
-    try {
-      const username = name.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase();
-      await loginWithDev(username, `${name} (${role})`, name);
-      showToast(`Welcome, ${name}!`, 'success');
-      onSuccess?.();
-      onClose();
-    } catch (err: any) {
-      showToast(err?.message || 'Quick login failed', 'error');
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const handleGoogleSignIn = async () => {
     setSubmitting(true);
@@ -77,18 +38,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       const code = err.code || '';
       const msg = err.message || '';
 
-      if (code === 'auth/popup-closed-by-user') {
-        // User closed the popup manually, no error needed
-      } else if (
-        code === 'auth/popup-blocked' ||
-        code === 'auth/network-request-failed' ||
-        code === 'auth/unauthorized-domain' ||
-        msg.includes('Failed to fetch') ||
-        msg.includes('network')
-      ) {
-        showToast('Google popup restricted in this browser. Enter your name below to play instantly!', 'info');
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        // User deliberately closed popup - do nothing
+      } else if (code === 'auth/unauthorized-domain') {
+        showToast('Domain not authorized in Firebase Console (Add localhost to Authorized Domains).', 'error');
+      } else if (code === 'auth/popup-blocked') {
+        showToast('Browser blocked the popup. Click the redirect link below to sign in.', 'info');
       } else {
-        showToast(msg || 'Google sign in failed. Enter your name below to play!', 'error');
+        showToast(msg || `Sign in failed (${code || 'Unknown error'})`, 'error');
       }
     } finally {
       setSubmitting(false);
@@ -101,7 +58,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
     try {
       await loginWithGoogleRedirect();
     } catch (err: any) {
-      showToast(err?.message || 'Redirect failed. Use Instant Name Play below.', 'error');
+      showToast(err?.message || 'Redirect failed. Please try again.', 'error');
       setSubmitting(false);
     }
   };
@@ -131,47 +88,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
           </div>
           <h2 className="text-xl sm:text-2xl font-serif font-black text-ivory-100">Play 16 Parchi</h2>
           <p className="text-xs text-stone-400 mt-1 leading-relaxed">
-            Enter your name to jump into the room or sign in with Google to save your royal stats.
+            Sign in with Google to play and save your royal stats.
           </p>
         </div>
 
         {/* Auth Body */}
         <div className="space-y-4 relative z-10">
-          {/* Instant Name / Guest Play Form */}
-          <form onSubmit={handleInstantGuestLogin} className="space-y-2.5">
-            <label className="block text-[11px] font-bold text-amber-300 uppercase tracking-wider">
-              Instant 1-Click Play (No Password Needed)
-            </label>
-            <div className="relative">
-              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-              <input
-                type="text"
-                placeholder="Enter your name / nickname..."
-                value={guestName}
-                onChange={(e) => setGuestName(e.target.value)}
-                maxLength={25}
-                className="w-full pl-10 pr-4 py-3 rounded-xl bg-black/40 border border-gold-500/40 text-ivory-100 text-sm placeholder:text-stone-500 focus:outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400/50 transition-all"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={submitting || !guestName.trim()}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-stone-950 font-black text-sm shadow-[0_0_20px_rgba(245,158,11,0.35)] transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
-            >
-              <span>Play Now</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </form>
-
-          {/* Divider */}
-          <div className="relative flex items-center justify-center my-3">
-            <div className="border-t border-table-border/80 w-full" />
-            <span className="bg-table-surface px-3 text-[10px] font-semibold text-stone-400 uppercase tracking-widest shrink-0">
-              or sign in with
-            </span>
-            <div className="border-t border-table-border/80 w-full" />
-          </div>
-
           {/* Google Authentication Button */}
           <button
             type="button"
@@ -220,29 +142,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             >
               Popup not opening? Sign in with full page redirect
             </button>
-          </div>
-
-          {/* Quick 1-Click Avatars */}
-          <div className="pt-2.5 border-t border-table-border/60">
-            <span className="block text-[10px] font-semibold text-stone-400 uppercase tracking-wider mb-2 text-center">
-              Quick Test Avatars
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickAvatar('Raja Player', 'Raja')}
-                className="p-1.5 rounded-lg bg-black/30 border border-gold-500/30 hover:border-gold-400 text-left transition-all hover:bg-gold-500/10 text-xs text-ivory-100 font-semibold"
-              >
-                👑 Raja
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickAvatar('Rani Player', 'Rani')}
-                className="p-1.5 rounded-lg bg-black/30 border border-pink-500/30 hover:border-pink-400 text-left transition-all hover:bg-pink-500/10 text-xs text-ivory-100 font-semibold"
-              >
-                ✨ Rani
-              </button>
-            </div>
           </div>
 
           {/* Trust & Safety Badges */}

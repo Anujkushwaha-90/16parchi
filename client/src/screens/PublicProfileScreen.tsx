@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext.js';
 import { useAuth } from '../context/AuthContext.js';
 import { isVipUser } from '../utils/vip.js';
 import { EternalLoveProfile } from '../components/EternalLove/EternalLoveProfile.js';
+import { PlayerAvatar } from '../components/PlayerAvatar.js';
 import confetti from 'canvas-confetti';
 import {
   Crown,
@@ -188,8 +189,9 @@ export const PublicProfileScreen: React.FC<PublicProfileScreenProps> = ({
         {/* Profile Header */}
         <div className="flex flex-col items-center text-center relative z-10 mb-8">
           <div className="relative mb-4">
-            <img
+            <PlayerAvatar
               src={profile.avatarUrl}
+              name={profile.displayName}
               alt={profile.displayName}
               className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl object-cover bg-emerald-950 border-2 border-gold-400/60 shadow-gold-glow"
             />

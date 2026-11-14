@@ -3,6 +3,7 @@ import { useToast } from '../context/ToastContext.js';
 import { sound } from '../services/sound.js';
 import { api } from '../services/api.js';
 import { CardTheme, CustomParchiItem } from '../types/index.js';
+import { MATCH_BETS } from '../services/punishments.js';
 import {
   Swords,
   PlusCircle,
@@ -35,6 +36,8 @@ export const RoomSelectScreen: React.FC<RoomSelectScreenProps> = ({
   const [deckMode, setDeckMode] = useState<'default' | 'custom'>('default');
   const [joinCode, setJoinCode] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+  const [selectedBet, setSelectedBet] = useState<string>('chai_samosa');
+  const [customBetInput, setCustomBetInput] = useState<string>('');
 
   // Custom parchi names editable list
   const defaultCustomNames: CustomParchiItem[] = [
@@ -96,6 +99,18 @@ export const RoomSelectScreen: React.FC<RoomSelectScreenProps> = ({
       title: '🦁 Jungle Beasts',
       description: 'Sher, Garuda, Baagh, Haathi, Ghora, Mor...',
       identities: ['Lion', 'Eagle', 'Tiger', 'Elephant', 'Horse', 'Peacock'],
+    },
+    {
+      id: 'bollywood',
+      title: '🎬 Bollywood Villains & Legends',
+      description: 'Gabbar, Mogambo, Crime Master Gogo, Babu Bhaiya, Circuit, Shakaal...',
+      identities: ['Gabbar', 'Mogambo', 'Gogo', 'Babu Rao', 'Circuit', 'Shakaal'],
+    },
+    {
+      id: 'college',
+      title: '🎓 Hostel & College Life',
+      description: 'Backbencher, 9 CGPA Topper, Proxy Master, 2 AM Maggi Chef, Night Owl...',
+      identities: ['Backbencher', 'Topper', 'Proxy Master', 'Maggi Chef', 'Night Owl', 'Tapri Chai'],
     },
   ];
 
@@ -174,7 +189,9 @@ export const RoomSelectScreen: React.FC<RoomSelectScreenProps> = ({
         deckMode === 'custom' ? 'custom' : selectedTheme,
         turnTimer,
         playerCount,
-        customDeckPayload
+        customDeckPayload,
+        selectedBet,
+        selectedBet === 'custom' ? customBetInput.trim() : undefined
       );
 
       if (res.room && res.room.code) {
@@ -536,6 +553,58 @@ export const RoomSelectScreen: React.FC<RoomSelectScreenProps> = ({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* 4. Match Shart / Loser Penalty */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-xs font-bold text-stone-300 uppercase tracking-wider flex items-center gap-2">
+                <span className="text-base">🔥</span>
+                <span>4. Match Shart / Loser Penalty (High Stakes)</span>
+              </label>
+              <span className="text-xs font-mono font-bold text-amber-400">
+                Penalty Slip on Loser
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {MATCH_BETS.map((bet) => (
+                <button
+                  key={bet.id}
+                  type="button"
+                  onClick={() => {
+                    sound.playClick();
+                    setSelectedBet(bet.id);
+                  }}
+                  className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
+                    selectedBet === bet.id
+                      ? 'border-amber-400 bg-amber-500/15 shadow-gold-glow'
+                      : 'border-table-border bg-table-card hover:border-gold-500/40 text-stone-400'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xl">{bet.emoji}</span>
+                    <span className="text-xs font-bold text-ivory-100">{bet.title}</span>
+                  </div>
+                  <p className="text-[11px] text-stone-400 line-clamp-2">
+                    {bet.description}
+                  </p>
+                </button>
+              ))}
+            </div>
+
+            {selectedBet === 'custom' && (
+              <div className="mt-3">
+                <input
+                  type="text"
+                  maxLength={100}
+                  value={customBetInput}
+                  onChange={(e) => setCustomBetInput(e.target.value)}
+                  placeholder="Enter custom dare / shart (e.g. Winner gets 20 pushups from Loser)..."
+                  className="w-full px-4 py-2.5 rounded-xl bg-black/50 border border-amber-400/50 text-xs text-ivory-100 focus:outline-none focus:border-gold-400"
+                />
+              </div>
+            )}
           </div>
 
           {/* AI Bot feature reminder */}

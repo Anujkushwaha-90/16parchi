@@ -643,5 +643,72 @@ describe('16 PARCHI Master Test Suite', () => {
       // Seat 0 NEVER receives a turn
       expect(game.seats[0].finishedRank).toBe(1);
     });
+
+    it('allows passing the just-received card forward clockwise (no anti-bounce block)', () => {
+      const game = new ParchiGame('match_just_in', 'room_ji', 'JST01', dummyPlayers, 'royals', 60, 4);
+      game.startMatch();
+
+      game.seats[0].hand = [
+        { id: 'r1', name: 'RAJA', theme: 'royals', title: 'Raja', icon: 'Crown', color: 'gold' },
+        { id: 'r2', name: 'RAJA', theme: 'royals', title: 'Raja', icon: 'Crown', color: 'gold' },
+        { id: 'r3', name: 'RAJA', theme: 'royals', title: 'Raja', icon: 'Crown', color: 'gold' },
+        { id: 'c_new', name: 'CHOR', theme: 'royals', title: 'Chor', icon: 'Moon', color: 'indigo' },
+      ];
+      game.seats[0].lastReceivedCardId = 'c_new';
+      game.activeSeat = 0;
+
+      const res = game.passCard('user_1', 'c_new');
+      expect(res.success).toBe(true);
+      expect(game.seats[0].hand.map((c) => c.name)).toEqual(['RAJA', 'RAJA', 'RAJA']);
+      expect(game.seats[1].hand.some((c) => c.id === 'c_new')).toBe(true);
+    });
+
+    it('finishes receiver immediately when receiving the 4th identical card in a 4-card hand', () => {
+      const game = new ParchiGame('match_recv_win', 'room_rw', 'RCV01', dummyPlayers, 'royals', 60, 4);
+      game.startMatch();
+
+      // Seat 0 already passed down to 3 matching RAJA cards
+      game.seats[0].hand = [
+        { id: 'r1', name: 'RAJA', theme: 'royals', title: 'Raja', icon: 'Crown', color: 'gold' },
+        { id: 'r2', name: 'RAJA', theme: 'royals', title: 'Raja', icon: 'Crown', color: 'gold' },
+        { id: 'r3', name: 'RAJA', theme: 'royals', title: 'Raja', icon: 'Crown', color: 'gold' },
+      ];
+      // Seat 3 holds 4 non-identical cards + the 4th RAJA
+      game.seats[3].hand = [
+        { id: 's1', name: 'SIPAHI', theme: 'royals', title: 'Sipahi', icon: 'Shield', color: 'green' },
+        { id: 's2', name: 'SIPAHI', theme: 'royals', title: 'Sipahi', icon: 'Shield', color: 'green' },
+        { id: 'q1', name: 'RANI', theme: 'royals', title: 'Rani', icon: 'Sparkles', color: 'pink' },
+        { id: 'c1', name: 'CHOR', theme: 'royals', title: 'Chor', icon: 'Moon', color: 'indigo' },
+        { id: 'r4', name: 'RAJA', theme: 'royals', title: 'Raja', icon: 'Crown', color: 'gold' },
+      ];
+      game.activeSeat = 3;
+
+      const res = game.passCard('user_4', 'r4');
+      expect(res.success).toBe(true);
+      expect(game.seats[0].hand).toHaveLength(4);
+      expect(game.seats[0].finishedRank).toBe(1);
+      expect(game.rankings[0].cardName).toBe('RAJA');
+      // Active turn skips finished Seat 0 and moves to Seat 1
+      expect(game.activeSeat).toBe(1);
+    });
+
+    it('bot declares win instead of passing a winning card if it holds 4 identical cards on its turn', () => {
+      const botPlayers = dummyPlayers.map((p, idx) => ({ ...p, isBot: idx === 1 }));
+      const game = new ParchiGame('match_bot_win', 'room_bw', 'BOT01', botPlayers, 'royals', 60, 4);
+      game.startMatch();
+
+      game.seats[1].hand = [
+        { id: 'q1', name: 'RANI', theme: 'royals', title: 'Rani', icon: 'Sparkles', color: 'pink' },
+        { id: 'q2', name: 'RANI', theme: 'royals', title: 'Rani', icon: 'Sparkles', color: 'pink' },
+        { id: 'q3', name: 'RANI', theme: 'royals', title: 'Rani', icon: 'Sparkles', color: 'pink' },
+        { id: 'q4', name: 'RANI', theme: 'royals', title: 'Rani', icon: 'Sparkles', color: 'pink' },
+      ];
+      game.activeSeat = 1;
+
+      game.executeBotTurn(1);
+      expect(game.seats[1].finishedRank).toBe(1);
+      expect(game.seats[1].hand).toHaveLength(4);
+      expect(game.activeSeat).toBe(2);
+    });
   });
 });

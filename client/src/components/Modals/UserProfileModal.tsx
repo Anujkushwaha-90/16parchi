@@ -2,7 +2,8 @@ import { romanticAudio } from '../../services/romanticAudio.js';
 import { duoAudio } from '../../services/duoAudio.js';
 import { isDuoMember, isDuoBoy, isDuoGirl, DuoBadgeTag, DuoUniqueName } from '../../utils/duo.js';
 import { DynamicDuoHandholdModal } from '../DynamicDuo/DynamicDuoHandholdModal.js';
-import React, { useState, useEffect } from 'react';
+import { PlayerAvatar } from '../PlayerAvatar.js';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../context/AuthContext.js';
 import { useToast } from '../../context/ToastContext.js';
@@ -55,6 +56,8 @@ interface UserProfileModalProps {
   onNavigate?: (screen: string, extraParam?: string) => void;
 }
 
+const autoPlayedProfileKeys = new Set<string>();
+
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   isOpen,
   onClose,
@@ -73,6 +76,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [loveShowerCount, setLoveShowerCount] = useState(0);
   const [isHandholdModalOpen, setIsHandholdModalOpen] = useState(false);
   const [isHaareyaPlaying, setIsHaareyaPlaying] = useState<boolean>(romanticAudio.getHaareyaPlaying());
+  const targetRef = useRef(target);
+  targetRef.current = target;
+  const currentUserRef = useRef(currentUser);
+  currentUserRef.current = currentUser;
+  const celebratedModalKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     romanticAudio.setHaareyaCallback((playing) => {
@@ -107,39 +115,25 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const isBoy = Boolean(isDuoBoy(profile) || isDuoBoy(target) || (isSelf && isDuoBoy(currentUser)));
   const isGirl = Boolean(isDuoGirl(profile) || isDuoGirl(target) || (isSelf && isDuoGirl(currentUser)));
 
+  // Fetch profile data & manage audio cleanup solely when modal opens/closes or target ID changes
   useEffect(() => {
-    if (!isOpen) return;
-
-    if (target) {
-      setProfile(target);
+    if (!isOpen) {
+      celebratedModalKeyRef.current = null;
+      romanticAudio.stopHaareya();
+      duoAudio.stopDuoSong();
+      return;
     }
 
-    // Special 3D Love Confetti & Haareya Romantic Song when VIP Profile opened
-    if (isVip) {
-      sound.playWin();
-      confetti({
-        particleCount: 65,
-        spread: 85,
-        origin: { y: 0.5 },
-        colors: ['#f43f5e', '#ec4899', '#fb7185', '#f59e0b', '#ffffff'],
-      });
-      // Softly play Haareya song for Sovereign Anuj
-      romanticAudio.playHaareya();
-    } else if (isDuo) {
-      sound.playWin();
-      confetti({
-        particleCount: 65,
-        spread: 85,
-        origin: { y: 0.5 },
-        colors: isBoy
-          ? ['#38bdf8', '#0284c7', '#f59e0b', '#ffffff']
-          : ['#f43f5e', '#fb7185', '#fde047', '#ffffff'],
-      });
-      // Softly play Perfect by Ed Sheeran for Dynamic Duo
-      duoAudio.playDuoSong();
-    }
+    const latestTarget = targetRef.current;
+    const latestUser = currentUserRef.current;
 
-    if (effectiveId && !target?.isBot) {
+    if (latestTarget) {
+      setProfile(latestTarget);
+    }
+    setRequestSent(false);
+    setIsFriend(false);
+
+    if (effectiveId && !latestTarget?.isBot) {
       setLoading(true);
       api
         .getPlayerProfile(effectiveId)
@@ -154,14 +148,20 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         .catch(() => {})
         .finally(() => setLoading(false));
 
-      // Check friendship status if viewing opponent
-      if (!isSelf && currentUser) {
+      const viewingSelf = Boolean(
+        latestUser &&
+          (effectiveId === latestUser.id ||
+            latestTarget?.username === latestUser.username ||
+            latestTarget?.friendCode === latestUser.friendCode)
+      );
+
+      if (!viewingSelf && latestUser) {
         api
           .getFriends()
           .then((res: any) => {
             if (res && res.friends) {
               const matched = res.friends.some(
-                (f: any) => f.id === effectiveId || f.friendCode === target?.friendCode
+                (f: any) => f.id === effectiveId || f.friendCode === latestTarget?.friendCode
               );
               setIsFriend(matched);
             }
@@ -171,11 +171,38 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     }
 
     return () => {
-      // Instantly stop all background songs when modal closes or unmounts
+      // Stop background songs only when modal closes, target switches, or component unmounts
       romanticAudio.stopHaareya();
       duoAudio.stopDuoSong();
     };
-  }, [isOpen, effectiveId, isVip, isDuo, isBoy, isGirl, isSelf, target, currentUser]);
+  }, [isOpen, effectiveId]);
+
+  // Trigger VIP / Duo celebration and song on modal open
+  useEffect(() => {
+    if (!isOpen || (!isVip && !isDuo)) return;
+
+    if (isVip) {
+      sound.playWin();
+      confetti({
+        particleCount: 65,
+        spread: 85,
+        origin: { y: 0.5 },
+        colors: ['#f43f5e', '#ec4899', '#fb7185', '#f59e0b', '#ffffff'],
+      });
+      romanticAudio.playHaareya(true);
+    } else if (isDuo) {
+      sound.playWin();
+      confetti({
+        particleCount: 65,
+        spread: 85,
+        origin: { y: 0.5 },
+        colors: isBoy
+          ? ['#38bdf8', '#0284c7', '#f59e0b', '#ffffff']
+          : ['#f43f5e', '#fb7185', '#fde047', '#ffffff'],
+      });
+      duoAudio.playDuoSong();
+    }
+  }, [isOpen, effectiveId, isVip, isDuo, isBoy]);
 
   if (!isOpen || !profile) return null;
 
@@ -338,8 +365,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             {isVip ? (
               <div className="relative mb-2">
                 <VipLoveAura size="lg">
-                  <img
+                  <PlayerAvatar
                     src={profile.avatarUrl}
+                    name={profile.displayName}
                     alt={profile.displayName}
                     className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover bg-stone-900 border-2 border-pink-200/90 shadow-[0_0_20px_rgba(244,63,94,0.7)]"
                   />
@@ -368,8 +396,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 }}
                 title="Dynamic Duo • Click to open Universe 🤝"
               >
-                <img
+                <PlayerAvatar
                   src={profile.avatarUrl}
+                  name={profile.displayName}
                   alt={profile.displayName}
                   className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover bg-stone-900 border-2 transition-transform duration-300 group-hover:scale-105 ${
                     isBoy
@@ -387,8 +416,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               </div>
             ) : (
               <div className="relative mb-2">
-                <img
+                <PlayerAvatar
                   src={profile.avatarUrl}
+                  name={profile.displayName}
                   alt={profile.displayName}
                   className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover bg-emerald-950 border-2 border-gold-400/60 shadow-gold-glow"
                 />

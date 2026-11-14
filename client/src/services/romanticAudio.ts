@@ -55,6 +55,9 @@ class RomanticAudioService {
     if (this.isSongMuted) return;
     try {
       const audio = this.getOrCreateHaareyaAudio();
+      if (!forceRestart && !audio.paused) {
+        return;
+      }
       audio.volume = 0.70;
       if (forceRestart) {
         audio.currentTime = 0;

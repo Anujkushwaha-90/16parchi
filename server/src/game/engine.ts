@@ -47,6 +47,8 @@ export class ParchiGame {
   public endedAt: number | null = null;
   public playerCount: number;
   public customDeckConfig: CustomDeckConfig | null;
+  public matchBet?: string;
+  public customBetText?: string;
 
   private timerInterval: NodeJS.Timeout | null = null;
   private onStateChangeCallback: (() => void) | null = null;
@@ -64,15 +66,20 @@ export class ParchiGame {
       avatarUrl: string;
       isBot: boolean;
       seatIndex: number;
+      winStreak?: number;
     }>,
     theme: CardTheme = 'royals',
     turnTimeSeconds: number = 60,
     customDeckConfig?: CustomDeckConfig | null,
-    playerCount?: number
+    playerCount?: number,
+    matchBet?: string,
+    customBetText?: string
   ) {
     this.matchId = matchId;
     this.roomId = roomId;
     this.roomCode = roomCode;
+    this.matchBet = matchBet || 'chai_samosa';
+    this.customBetText = customBetText;
     if (typeof customDeckConfig === 'number') {
       playerCount = customDeckConfig;
       customDeckConfig = null;
@@ -110,6 +117,7 @@ export class ParchiGame {
           finishedRank: null,
           winningCards: null,
           declaredAt: null,
+          winStreak: p.winStreak || 0,
           missedTurns: 0,
           isEliminated: false,
           ranOut: false,
@@ -130,6 +138,7 @@ export class ParchiGame {
           finishedRank: null,
           winningCards: null,
           declaredAt: null,
+          winStreak: 0,
           missedTurns: 0,
           isEliminated: false,
           ranOut: false,
@@ -247,17 +256,6 @@ export class ParchiGame {
       return { success: false, error: 'Selected parchi is not in your hand.' };
     }
 
-    // Strict Anti-Bounce Rule: You cannot immediately pass back the parchi you just received if you have other cards
-    if (
-      currentSeat.lastReceivedCardId === cardId &&
-      currentSeat.hand.some((c) => c.id !== cardId)
-    ) {
-      return {
-        success: false,
-        error: 'Anti-bounce rule: You cannot pass back the parchi you just received! Choose another parchi.',
-      };
-    }
-
     const targetSeatIndex = this.getNextActiveSeat(this.activeSeat);
     const targetSeat = this.seats[targetSeatIndex];
 
@@ -295,6 +293,19 @@ export class ParchiGame {
         const isAllIdentical = currentSeat.hand.every((c) => c.name === firstCardName);
         if (isAllIdentical) {
           this.finishSeat(this.activeSeat, firstCardName);
+        }
+      }
+
+      // Check receiver's hand too if receiving brought them to exactly 4 identical parchis (e.g., Seat 0 going 3 -> 4)
+      if (
+        (this.status as MatchStatus) === 'ACTIVE' &&
+        targetSeat.finishedRank === null &&
+        targetSeat.hand.length === 4
+      ) {
+        const firstTargetCardName = targetSeat.hand[0].name;
+        const isTargetAllIdentical = targetSeat.hand.every((c) => c.name === firstTargetCardName);
+        if (isTargetAllIdentical) {
+          this.finishSeat(targetSeatIndex, firstTargetCardName);
         }
       }
 
@@ -370,6 +381,10 @@ export class ParchiGame {
       botLoop++;
       const botSeat = this.seats[this.activeSeat];
       if (!botSeat || botSeat.hand.length === 0) break;
+      if (this.checkFourOfAKind(botSeat.hand)) {
+        this.declareWin(botSeat.seatIndex);
+        continue;
+      }
       const cardToPass = this.getCardToPass(botSeat.hand, botSeat.lastReceivedCardId);
       this.passCard(botSeat.userId, cardToPass.id);
     }
@@ -663,6 +678,11 @@ export class ParchiGame {
     const botSeat = this.seats[seatIndex];
     if (!botSeat || !botSeat.isBot || botSeat.finishedRank !== null || botSeat.hand.length === 0) return;
 
+    if (this.checkFourOfAKind(botSeat.hand)) {
+      this.declareWin(seatIndex);
+      return;
+    }
+
     const cardToPass = this.getCardToPass(botSeat.hand, botSeat.lastReceivedCardId);
     this.passCard(botSeat.userId, cardToPass.id);
   }
@@ -720,6 +740,7 @@ export class ParchiGame {
         finishedRank: s.finishedRank,
         // Only show winning cards if they have finished!
         winningCards: s.winningCards,
+        winStreak: s.winStreak || 0,
         missedTurns: s.missedTurns || 0,
         isEliminated: !!s.isEliminated,
         ranOut: !!s.ranOut,
@@ -734,6 +755,8 @@ export class ParchiGame {
       logs: this.logs.slice(0, 15),
       playerCount: this.playerCount,
       customDeckConfig: this.customDeckConfig,
+      matchBet: this.matchBet,
+      customBetText: this.customBetText,
     };
   }
 
@@ -790,6 +813,8 @@ export class ParchiGame {
       endedAt: this.endedAt,
       playerCount: this.playerCount,
       customDeckConfig: this.customDeckConfig,
+      matchBet: this.matchBet,
+      customBetText: this.customBetText,
     };
   }
 
@@ -802,7 +827,9 @@ export class ParchiGame {
       data.theme,
       data.turnTimeSeconds,
       data.customDeckConfig,
-      data.playerCount
+      data.playerCount,
+      data.matchBet,
+      data.customBetText
     );
     game.status = data.status || 'ACTIVE';
     game.seats = (data.seats || []).map((s: any) => ({

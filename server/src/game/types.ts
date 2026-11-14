@@ -1,4 +1,4 @@
-export type CardTheme = 'royals' | 'seasons' | 'elements' | 'animals' | 'custom';
+export type CardTheme = 'royals' | 'seasons' | 'elements' | 'animals' | 'bollywood' | 'college' | 'custom';
 
 export interface CustomParchiItem {
   name: string;
@@ -36,6 +36,7 @@ export interface PlayerSeat {
   finishedRank: number | null; // 1, 2, 3, 4
   winningCards: string[] | null;
   declaredAt: number | null;
+  winStreak?: number;
   lastReceivedCardId?: string;
   missedTurns?: number;
   isEliminated?: boolean;
@@ -55,6 +56,7 @@ export interface PublicPlayerSeat {
   hasPassedInTurn: boolean;
   finishedRank: number | null;
   winningCards: string[] | null;
+  winStreak?: number;
   missedTurns?: number;
   isEliminated?: boolean;
   ranOut?: boolean;
@@ -97,6 +99,8 @@ export interface PublicGameState {
   logs: GameLogEntry[];
   playerCount: number;
   customDeckConfig?: CustomDeckConfig | null;
+  matchBet?: string;
+  customBetText?: string;
 }
 
 export interface PrivatePlayerState extends PublicGameState {

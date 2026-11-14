@@ -86,6 +86,30 @@ export const THEME_IDENTITIES: Record<Exclude<CardTheme, 'custom'>, ThemeIdentit
     { name: 'DEER', title: 'Hiran (Deer)', icon: 'Heart', color: '#10b981' },
     { name: 'FALCON', title: 'Baaz (Falcon)', icon: 'Feather', color: '#ef4444' },
   ],
+  bollywood: [
+    { name: 'GABBAR', title: 'Gabbar Singh', icon: 'Flame', color: '#ef4444' },
+    { name: 'MOGAMBO', title: 'Mogambo Khush', icon: 'Crown', color: '#f59e0b' },
+    { name: 'GOGO', title: 'Crime Master Gogo', icon: 'Sparkles', color: '#8b5cf6' },
+    { name: 'BABURAO', title: 'Babu Bhaiya', icon: 'Shield', color: '#10b981' },
+    { name: 'SHAKAAL', title: 'Shakaal Shark', icon: 'Moon', color: '#ea580c' },
+    { name: 'CIRCUIT', title: 'Circuit Bhai', icon: 'Sun', color: '#eab308' },
+    { name: 'KANCHA', title: 'Kancha Cheena', icon: 'Feather', color: '#64748b' },
+    { name: 'TEJA', title: 'Teja Original Mark', icon: 'Zap', color: '#06b6d4' },
+    { name: 'CHOOCHA', title: 'Choocha Sapna', icon: 'Flower2', color: '#ec4899' },
+    { name: 'VASOOLI', title: 'Vasooli Panvel', icon: 'Cat', color: '#84cc16' },
+  ],
+  college: [
+    { name: 'BACKBENCHER', title: 'Backbencher', icon: 'Flame', color: '#ea580c' },
+    { name: 'TOPPER', title: '9 CGPA Topper', icon: 'Crown', color: '#f59e0b' },
+    { name: 'PROXY_MASTER', title: 'Proxy Master', icon: 'Feather', color: '#3b82f6' },
+    { name: 'MAGGI_CHEF', title: '2 AM Maggi Chef', icon: 'Sun', color: '#eab308' },
+    { name: 'NIGHT_OWL', title: 'Night Owl (All-Nighter)', icon: 'Moon', color: '#8b5cf6' },
+    { name: 'CHAI_LOVER', title: 'Tapri Chai Lover', icon: 'Droplets', color: '#84cc16' },
+    { name: 'CRUSH_STALKER', title: 'Campus Romeo', icon: 'Sparkles', color: '#ec4899' },
+    { name: 'CRASHER', title: 'Hostel Crasher', icon: 'Shield', color: '#10b981' },
+    { name: 'PLACEMENT_KING', title: 'Placed in Day 1', icon: 'Zap', color: '#06b6d4' },
+    { name: 'VIVA_TERROR', title: 'External VIVA Terror', icon: 'Leaf', color: '#ef4444' },
+  ],
 };
 
 /**

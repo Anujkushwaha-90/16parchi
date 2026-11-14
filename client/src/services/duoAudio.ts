@@ -15,6 +15,9 @@ class DuoAudioService {
         this.audio.loop = true;
         this.audio.preload = 'auto';
       }
+      if (!this.audio.paused) {
+        return;
+      }
       this.audio.volume = 0.42;
       this.audio.currentTime = 0;
       const promise = this.audio.play();

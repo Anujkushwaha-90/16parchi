@@ -45,10 +45,11 @@ export function setupGameSockets(io: Server): void {
     }
   });
 
-  // Track player rate limits for transfers
+  // Track player rate limits for transfers & comedic taunts
   const lastPassTime: Map<string, number> = new Map();
+  const lastTauntTime: Map<string, number> = new Map();
 
-  io.on('connection', async (socket: AuthenticatedSocket) => {
+  io.on('connection', (socket: AuthenticatedSocket) => {
     const userId = socket.userId!;
     console.log(`🔌 Player connected: ${socket.user.username} (${userId})`);
 
@@ -56,15 +57,13 @@ export function setupGameSockets(io: Server): void {
     socket.join(`user:${userId}`);
     markUserConnected(userId);
 
-    // Update online presence
-    try {
-      await prisma.user.update({
+    // Update online presence asynchronously so early client emits on 'connect' are never dropped
+    prisma.user
+      .update({
         where: { id: userId },
         data: { isOnline: true, lastSeenAt: new Date() },
-      });
-    } catch (e) {
-      // Non-critical background DB sync failure
-    }
+      })
+      .catch(() => {});
     io.emit('presence:update', { userId, isOnline: true });
 
     /**
@@ -76,7 +75,7 @@ export function setupGameSockets(io: Server): void {
       console.log(`User ${socket.user.username} joined room channel: room:${roomId}`);
 
       // If there is an active match in this room, emit state immediately
-      const game = gameManager.getGame(roomId);
+      const game = await gameManager.getGameAsync(roomId);
       if (game) {
         socket.emit('gameState:public', game.getPublicState());
         const privateState = game.getPrivateStateForPlayer(userId);
@@ -97,8 +96,8 @@ export function setupGameSockets(io: Server): void {
     /**
      * Request full authoritative state sync (reconnect / tab refresh)
      */
-    socket.on('game:requestSync', ({ roomId }: { roomId: string }) => {
-      const game = gameManager.getGame(roomId);
+    socket.on('game:requestSync', async ({ roomId }: { roomId: string }) => {
+      const game = await gameManager.getGameAsync(roomId);
       if (!game) {
         socket.emit('game:notActive', { roomId });
         return;
@@ -187,6 +186,49 @@ export function setupGameSockets(io: Server): void {
           avatarUrl: socket.user.avatarUrl,
           message: sanitized,
           timestamp: Date.now(),
+        });
+      }
+    );
+
+    /**
+     * In-game comedic meme taunts & animated projectile throws
+     */
+    socket.on(
+      'table:taunt',
+      ({
+        roomId,
+        tauntId,
+        type = 'voice',
+        targetSeatIndex,
+      }: {
+        roomId: string;
+        tauntId: string;
+        type?: 'voice' | 'throw';
+        targetSeatIndex?: number;
+      }) => {
+        if (!roomId || !tauntId) return;
+
+        // Anti-spam rate limit (3.5s cooldown)
+        const now = Date.now();
+        const prev = lastTauntTime.get(userId) || 0;
+        if (now - prev < 3500) {
+          socket.emit('game:error', { message: 'Chill karo bhidu! Thoda ruko (cooldown active).' });
+          return;
+        }
+        lastTauntTime.set(userId, now);
+
+        const game = gameManager.getGame(roomId);
+        const senderSeatIndex = game ? game.seats.findIndex((s) => s.userId === userId) : -1;
+
+        io.to(`room:${roomId}`).emit('table:taunt', {
+          id: `taunt_${now}_${Math.random().toString(36).substring(2, 6)}`,
+          senderId: userId,
+          senderSeatIndex,
+          senderName: socket.user.displayName || socket.user.username,
+          tauntId,
+          type,
+          targetSeatIndex,
+          timestamp: now,
         });
       }
     );

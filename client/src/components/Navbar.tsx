@@ -6,6 +6,7 @@ import { UserProfileModal } from './Modals/UserProfileModal.js';
 import { isVipUser } from '../utils/vip.js';
 import { isDuoMember, isDuoBoy, isDuoGirl } from '../utils/duo.js';
 import { Volume2, VolumeX, Users, Swords, History, Settings, LogOut, Copy, Check, Menu, X, Crown, Shield } from 'lucide-react';
+import { PlayerAvatar } from './PlayerAvatar.js';
 
 interface NavbarProps {
   currentScreen: string;
@@ -146,8 +147,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                   className="flex items-center gap-2 p-1 rounded-xl hover:bg-white/5 transition-all group"
                 >
                   <div className="relative">
-                    <img
+                    <PlayerAvatar
                       src={user.avatarUrl}
+                      name={user.displayName}
                       alt={user.displayName}
                       className={`w-8 h-8 rounded-full border object-cover bg-emerald-950 transition-transform group-hover:scale-110 ${
                         isVip
