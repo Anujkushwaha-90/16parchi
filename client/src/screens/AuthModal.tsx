@@ -70,16 +70,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         <div className="absolute -top-24 -left-24 w-48 h-48 bg-gold-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-gold-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <button
-          onClick={() => {
-            sound.playClick();
-            onClose();
-          }}
-          disabled={submitting}
-          className="absolute top-5 right-5 p-2 rounded-full bg-white/5 hover:bg-white/10 text-stone-400 hover:text-ivory-100 transition-colors disabled:opacity-50"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        {/* Close Button - Disabled when login is strictly required */}
+        {onClose && (
+          <button
+            onClick={() => {
+              sound.playClick();
+              onClose();
+            }}
+            disabled={submitting}
+            className="absolute top-5 right-5 p-2 rounded-full bg-white/5 hover:bg-white/10 text-stone-400 hover:text-ivory-100 transition-colors disabled:opacity-50"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
 
         {/* Modal Brand */}
         <div className="text-center mb-6 relative z-10">

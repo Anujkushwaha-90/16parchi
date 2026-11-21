@@ -53,15 +53,21 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response): Promise<v
         turnTimeSeconds,
         matchBet: matchBet || 'chai_samosa',
         customBetText: customBetText || null,
-        members: {
-          create: {
-            userId,
-            seatIndex: 0,
-            isReady: true, // Host is ready by default
-            isBot: false,
-          },
-        },
       },
+    });
+
+    await prisma.roomMember.create({
+      data: {
+        roomId: room.id,
+        userId,
+        seatIndex: 0,
+        isReady: true, // Host is ready by default
+        isBot: false,
+      },
+    });
+
+    const fullRoom = await prisma.gameRoom.findUnique({
+      where: { id: room.id },
       include: {
         host: {
           select: { id: true, username: true, displayName: true, avatarUrl: true },
@@ -77,7 +83,7 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response): Promise<v
       },
     });
 
-    res.json({ room });
+    res.json({ room: fullRoom });
   } catch (err) {
     console.error('Error creating room:', err);
     res.status(500).json({ error: 'Failed to create room' });
@@ -174,39 +180,32 @@ router.post('/quick-match', requireAuth, async (req: AuthRequest, res: Response)
         maxPlayers: 4,
         cardTheme: 'bollywood', // Fun desi theme by default for quick matches!
         turnTimeSeconds: 45,
-        members: {
-          create: [
-            {
-              userId,
-              seatIndex: 0,
-              isReady: true,
-              isBot: false,
-            },
-            {
-              seatIndex: 1,
-              isReady: true,
-              isBot: true,
-              botName: quickBots[0].name,
-              botAvatar: quickBots[0].avatar,
-            },
-            {
-              seatIndex: 2,
-              isReady: true,
-              isBot: true,
-              botName: quickBots[1].name,
-              botAvatar: quickBots[1].avatar,
-            },
-            {
-              seatIndex: 3,
-              isReady: true,
-              isBot: true,
-              botName: quickBots[2].name,
-              botAvatar: quickBots[2].avatar,
-            },
-          ],
-        },
       },
     });
+
+    // Create host member and 3 bots sequentially
+    await prisma.roomMember.create({
+      data: {
+        roomId: room.id,
+        userId,
+        seatIndex: 0,
+        isReady: true,
+        isBot: false,
+      },
+    });
+
+    for (let i = 0; i < quickBots.length; i++) {
+      await prisma.roomMember.create({
+        data: {
+          roomId: room.id,
+          seatIndex: i + 1,
+          isReady: true,
+          isBot: true,
+          botName: quickBots[i].name,
+          botAvatar: quickBots[i].avatar,
+        },
+      });
+    }
 
     // Start match immediately!
     const gameManager = GameManager.getInstance();

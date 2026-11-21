@@ -231,17 +231,21 @@ export class GameManager {
         roomId: room.id,
         hostId: room.hostId,
         totalRounds: 0,
-        players: {
-          create: players.map((p) => ({
-            userId: p.isBot ? null : p.userId,
-            isBot: p.isBot,
-            playerName: p.displayName,
-            avatarUrl: p.avatarUrl,
-            seatIndex: p.seatIndex,
-          })),
-        },
       },
     });
+
+    for (const p of players) {
+      await prisma.matchPlayer.create({
+        data: {
+          matchId: matchRecord.id,
+          userId: p.isBot ? null : p.userId,
+          isBot: p.isBot,
+          playerName: p.displayName,
+          avatarUrl: p.avatarUrl,
+          seatIndex: p.seatIndex,
+        },
+      });
+    }
 
     // Update room status
     await prisma.gameRoom.update({
