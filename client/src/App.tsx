@@ -37,7 +37,11 @@ function MainApp() {
     const roomParam = params.get('room');
     const profileParam = params.get('code') || params.get('user') || params.get('profile') || params.get('id');
 
-    if (profileParam) {
+    const screenParam = params.get('screen');
+
+    if (screenParam && ['friends', 'rooms', 'history', 'settings', 'dashboard'].includes(screenParam)) {
+      setCurrentScreen(screenParam);
+    } else if (profileParam) {
       setActiveProfileCode(profileParam);
       setCurrentScreen('profile');
     } else if (roomParam) {

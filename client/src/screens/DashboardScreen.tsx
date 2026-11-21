@@ -24,6 +24,9 @@ import {
   Camera,
   Shield,
   Heart,
+  AlertTriangle,
+  ClipboardList,
+  ExternalLink,
 } from 'lucide-react';
 
 interface DashboardScreenProps {
@@ -494,6 +497,50 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <span>Open Friends List</span>
             <ArrowRight className="w-4 h-4" />
           </button>
+        </div>
+      </div>
+
+      {/* Early Access / Work In Progress Disclaimer & Feedback Card */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-amber-950/40 via-table-surface to-amber-950/30 border border-amber-500/40 p-6 sm:p-7 shadow-[0_4px_30px_rgba(245,158,11,0.12)]">
+        {/* Ambient Glow */}
+        <div className="absolute top-0 right-0 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-2.5 max-w-2xl">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                <span>Work In Progress • Beta Access</span>
+              </span>
+              <span className="text-[11px] font-bold text-stone-400">
+                Major OB Update: <strong className="text-amber-300">Late January</strong>
+              </span>
+            </div>
+
+            <h3 className="font-serif font-black text-lg sm:text-xl text-ivory-100 flex items-center gap-2">
+              <span>Notice & Community Feedback</span>
+            </h3>
+
+            <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
+              16 Parchi is currently in active development. If you face any bug or glitch while playing, please capture a screenshot and report it. We resolve all critical issues within <strong>24 hours</strong>.
+            </p>
+
+            <p className="text-xs text-amber-200/90 leading-relaxed font-medium">
+              💡 Please share your valuable review & suggestions so we can implement your ideas into our upcoming <strong>Major OB Update</strong> (launching in the last week of January)!
+            </p>
+          </div>
+
+          <a
+            href="https://forms.gle/PwVG19gAkomvWF7d8"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => sound.playClick()}
+            className="shrink-0 w-full md:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-table-dark font-black text-xs sm:text-sm shadow-[0_0_20px_rgba(245,158,11,0.4)] flex items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 group"
+          >
+            <ClipboardList className="w-4 h-4 text-table-dark" />
+            <span>Give Review / Report Bug</span>
+            <ExternalLink className="w-4 h-4 text-table-dark group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+          </a>
         </div>
       </div>
 

@@ -305,7 +305,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               : isDuo
               ? isBoy
                 ? 'bg-gradient-to-b from-[#0a1128] via-[#101f42] to-[#080d1e] border-2 border-cyan-400/80 shadow-[0_0_60px_rgba(56,189,248,0.45)]'
-                : 'bg-gradient-to-b from-[#200918] via-[#330f26] to-[#160510] border-2 border-rose-400/80 shadow-[0_0_60px_rgba(244,63,94,0.45)]'
+                : 'bg-gradient-to-b from-[#25050a] via-[#3a0810] to-[#180205] border-2 border-red-500/90 shadow-[0_0_60px_rgba(239,68,68,0.55)]'
               : 'bg-table-surface border border-gold-500/40 shadow-2xl'
           }`}
           style={{ perspective: 1200 }}
@@ -329,19 +329,21 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
               <div
                 className={`absolute -top-10 -left-10 w-64 h-64 rounded-full blur-3xl animate-pulse ${
-                  isBoy ? 'bg-cyan-500/20' : 'bg-rose-500/20'
+                  isBoy ? 'bg-cyan-500/20' : 'bg-red-600/25'
                 }`}
               />
               <div
                 className={`absolute -bottom-10 -right-10 w-64 h-64 rounded-full blur-3xl animate-pulse ${
-                  isBoy ? 'bg-blue-500/20' : 'bg-pink-500/20'
+                  isBoy ? 'bg-blue-500/20' : 'bg-rose-600/25'
                 }`}
               />
               <span className="absolute left-6 bottom-4 text-lg opacity-70 animate-bounce">
                 {isBoy ? '🛡️' : '👑'}
               </span>
               <span className="absolute right-8 bottom-12 text-sm opacity-80 animate-pulse">✨</span>
-              <span className="absolute left-1/4 bottom-6 text-xl opacity-75 animate-bounce">💖</span>
+              <span className="absolute left-1/4 bottom-6 text-xl opacity-75 animate-bounce">
+                {isBoy ? '💖' : '❤️'}
+              </span>
               <span className="absolute right-1/4 bottom-2 text-base opacity-70 animate-pulse">💫</span>
             </div>
           )}
@@ -403,12 +405,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover bg-stone-900 border-2 transition-transform duration-300 group-hover:scale-105 ${
                     isBoy
                       ? 'border-cyan-300 shadow-[0_0_22px_rgba(56,189,248,0.7)]'
-                      : 'border-pink-300 shadow-[0_0_22px_rgba(244,63,94,0.7)]'
+                      : 'border-red-400 shadow-[0_0_25px_rgba(239,68,68,0.85)]'
                   }`}
                 />
                 <div
                   className={`absolute -bottom-1 -right-1 p-1 rounded-full text-white text-xs ${
-                    isBoy ? 'bg-cyan-600 border border-cyan-300' : 'bg-rose-600 border border-pink-300'
+                    isBoy ? 'bg-cyan-600 border border-cyan-300' : 'bg-red-600 border border-red-300 shadow-md'
                   }`}
                 >
                   {isBoy ? '🛡️' : '👑'}
@@ -482,7 +484,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     : isDuo
                     ? isBoy
                       ? 'bg-cyan-950/60 border border-cyan-400/50 text-cyan-200 hover:border-cyan-300'
-                      : 'bg-rose-950/60 border border-rose-400/50 text-pink-200 hover:border-pink-300'
+                      : 'bg-red-950/70 border border-red-500/60 text-red-200 hover:border-red-400'
                     : 'bg-table-dark/70 border border-gold-500/30 text-gold-300 hover:border-gold-400'
                 }`}
               >
@@ -542,12 +544,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border transition-all hover:scale-105 active:scale-95 ${
                     isBoy
                       ? 'bg-cyan-950/70 border-cyan-400/40 text-cyan-200 hover:border-cyan-300 shadow-[0_0_12px_rgba(56,189,248,0.35)]'
-                      : 'bg-rose-950/70 border-rose-400/40 text-pink-200 hover:border-pink-300 shadow-[0_0_12px_rgba(244,63,94,0.35)]'
+                      : 'bg-red-950/80 border-red-500/50 text-rose-100 hover:border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.4)]'
                   }`}
                 >
                   <span className="text-xs animate-pulse">🎵</span>
                   <span>Perfect • Ed Sheeran</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-ping" />
                 </button>
               </div>
             )}

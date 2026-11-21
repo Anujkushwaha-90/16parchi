@@ -28,7 +28,9 @@ export const DynamicDuoHandholdModal: React.FC<DynamicDuoHandholdModalProps> = (
   const [loading, setLoading] = useState(false);
   const [isAccepted, setIsAccepted] = useState(true); // Default true for preview or live
   const [actionLoading, setActionLoading] = useState(false);
-  const [floatingEmojis, setFloatingEmojis] = useState<Array<{ id: number; emoji: string; x: number }>>([]);
+  const [floatingEmojis, setFloatingEmojis] = useState<
+    Array<{ id: number; emoji: string; x: number; drift: number; scale: number; duration: number; delay: number }>
+  >([]);
 
   const isBoy = isDuoBoy(currentUser);
   const isGirl = isDuoGirl(currentUser);
@@ -112,28 +114,65 @@ export const DynamicDuoHandholdModal: React.FC<DynamicDuoHandholdModalProps> = (
     const emojiMap = { KISS: '💋', ROSE: '🌹', HUG: '🫂' };
     const emoji = emojiMap[type];
 
-    // Add multiple floating emojis
-    for (let i = 0; i < 6; i++) {
-      const newEmoji = {
-        id: Date.now() + i,
-        emoji,
-        x: 20 + Math.random() * 60,
-      };
-      setFloatingEmojis((prev) => [...prev, newEmoji]);
-      setTimeout(() => {
-        setFloatingEmojis((prev) => prev.filter((item) => item.id !== newEmoji.id));
-      }, 2500);
+    // Spawn flying particles with full inline CSS animation (guaranteed to fly and never get stuck!)
+    const batchId = Date.now();
+    const newItems = Array.from({ length: 10 }).map((_, i) => ({
+      id: batchId + i + Math.random(),
+      emoji,
+      x: 10 + Math.random() * 80, // 10% to 90%
+      drift: (Math.random() - 0.5) * 120, // drift left or right
+      scale: 1.1 + Math.random() * 0.7,
+      duration: 1.8 + Math.random() * 0.8,
+      delay: i * 0.08,
+    }));
+
+    setFloatingEmojis((prev) => [...prev, ...newItems]);
+    setTimeout(() => {
+      const idsToRemove = new Set(newItems.map((n) => n.id));
+      setFloatingEmojis((prev) => prev.filter((item) => !idsToRemove.has(item.id)));
+    }, 2800);
+
+    // Pure Confetti emoji blast across the entire screen!
+    try {
+      if ((confetti as any).shapeFromText) {
+        const shape = (confetti as any).shapeFromText({ text: emoji, scalar: 2.8 });
+        confetti({
+          shapes: [shape],
+          scalar: 2.8,
+          particleCount: 28,
+          spread: 80,
+          startVelocity: 35,
+          origin: { y: 0.7 },
+          ticks: 200,
+          gravity: 0.8,
+        });
+      } else {
+        confetti({
+          particleCount: 45,
+          spread: 80,
+          origin: { y: 0.7 },
+          colors:
+            type === 'ROSE'
+              ? ['#f43f5e', '#e11d48', '#fb7185']
+              : type === 'KISS'
+              ? ['#ec4899', '#f43f5e', '#fda4af']
+              : ['#38bdf8', '#818cf8', '#c084fc'],
+        });
+      }
+    } catch {
+      confetti({
+        particleCount: 45,
+        spread: 80,
+        origin: { y: 0.7 },
+      });
     }
 
-    confetti({
-      particleCount: 40,
-      spread: 60,
-      origin: { y: 0.6 },
-      colors: type === 'ROSE' ? ['#f43f5e', '#e11d48'] : ['#ec4899', '#fde047', '#38bdf8'],
-    });
-
     const actionText =
-      type === 'KISS' ? 'Flying Kiss sent with all your love! 💋' : type === 'ROSE' ? 'A Crimson Rose sent! 🌹' : 'A Warm Loving Hug sent! 🫂';
+      type === 'KISS'
+        ? 'Flying Kiss sent with all your love! 💋'
+        : type === 'ROSE'
+        ? 'A Crimson Rose sent! 🌹'
+        : 'A Warm Loving Hug sent! 🫂';
     showToast(actionText, 'success');
 
     // Fire API call asynchronously
@@ -176,13 +215,46 @@ export const DynamicDuoHandholdModal: React.FC<DynamicDuoHandholdModalProps> = (
             <X className="w-5 h-5" />
           </button>
 
-          {/* Floating Screen Emojis */}
-          <div className="absolute inset-0 pointer-events-none overflow-hidden z-40">
+          {/* Dynamic Keyframes Injection to guarantee 100% animation execution */}
+          <style>{`
+            @keyframes flyUpRocket {
+              0% {
+                transform: translate3d(0, 0, 0) scale(0.6) rotate(0deg);
+                opacity: 0;
+              }
+              15% {
+                opacity: 1;
+                transform: translate3d(calc(var(--fly-drift, 0px) * 0.3), -70px, 0) scale(1.35) rotate(-10deg);
+              }
+              50% {
+                opacity: 0.95;
+                transform: translate3d(calc(var(--fly-drift, 0px) * 0.7), -220px, 0) scale(1.5) rotate(12deg);
+              }
+              80% {
+                opacity: 0.8;
+                transform: translate3d(var(--fly-drift, 0px), -380px, 0) scale(1.2) rotate(-6deg);
+              }
+              100% {
+                transform: translate3d(calc(var(--fly-drift, 0px) * 1.3), -540px, 0) scale(0.7) rotate(15deg);
+                opacity: 0;
+              }
+            }
+          `}</style>
+
+          {/* Floating Flying Screen Emojis */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden z-50">
             {floatingEmojis.map((item) => (
               <span
                 key={item.id}
-                style={{ left: `${item.x}%` }}
-                className="absolute bottom-10 text-3xl animate-bounce transition-all duration-1000 opacity-90 transform -translate-y-48"
+                style={{
+                  left: `${item.x}%`,
+                  bottom: '75px',
+                  fontSize: `${2 * item.scale}rem`,
+                  animation: `flyUpRocket ${item.duration}s cubic-bezier(0.22, 1, 0.36, 1) forwards`,
+                  animationDelay: `${item.delay}s`,
+                  ['--fly-drift' as any]: `${item.drift}px`,
+                }}
+                className="absolute select-none pointer-events-none filter drop-shadow-[0_4px_16px_rgba(244,63,94,0.6)]"
               >
                 {item.emoji}
               </span>

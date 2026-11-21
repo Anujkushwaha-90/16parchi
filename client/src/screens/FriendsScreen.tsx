@@ -9,6 +9,8 @@ import { api } from '../services/api.js';
 import { Friend, FriendRequestItem } from '../types/index.js';
 import { UserProfileModal } from '../components/Modals/UserProfileModal.js';
 import { isVipUser, VipUniqueName } from '../utils/vip.js';
+import { isDuoBoy, isDuoGirl, isDuoMember, DuoUniqueName } from '../utils/duo.js';
+import { DynamicDuoHandholdModal } from '../components/DynamicDuo/DynamicDuoHandholdModal.js';
 import {
   Users,
   UserPlus,
@@ -43,6 +45,7 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onNavigate }) => {
   const [searching, setSearching] = useState(false);
   const [selectedProfileUser, setSelectedProfileUser] = useState<any | null>(null);
   const [sentRequestsMap, setSentRequestsMap] = useState<Record<string, boolean>>({});
+  const [showDuoModal, setShowDuoModal] = useState(false);
 
   const loadData = async (silent = false) => {
     try {
@@ -426,11 +429,16 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onNavigate }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {friends.map((f) => {
               const isFriendVip = isVipUser(f);
+              const isMutualDuo =
+                (isDuoBoy(user) && isDuoGirl(f)) ||
+                (isDuoGirl(user) && isDuoBoy(f));
               return (
                 <div
                   key={f.id}
                   className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
-                    isFriendVip
+                    isMutualDuo
+                      ? 'bg-gradient-to-r from-pink-950/40 via-purple-950/30 to-table-surface border-pink-500/60 shadow-[0_0_25px_rgba(236,72,153,0.25)]'
+                      : isFriendVip
                       ? 'bg-gradient-to-r from-rose-950/30 via-table-surface to-table-surface border-rose-500/50 shadow-[0_0_20px_rgba(244,63,94,0.15)]'
                       : 'bg-table-surface border-table-border hover:border-gold-500/40'
                   }`}
@@ -448,7 +456,9 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onNavigate }) => {
                         src={f.avatarUrl}
                         alt={f.displayName}
                         className={`w-11 h-11 rounded-full object-cover transition-transform group-hover:scale-105 ${
-                          isFriendVip
+                          isMutualDuo
+                            ? 'border-2 border-pink-400 shadow-[0_0_15px_rgba(236,72,153,0.8)] animate-pulse'
+                            : isFriendVip
                             ? 'border-2 border-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.7)] animate-heartbeat-3d'
                             : 'border border-gold-400/40 bg-emerald-950'
                         }`}
@@ -458,13 +468,23 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onNavigate }) => {
                           f.isOnline ? 'bg-emerald-400' : 'bg-stone-500'
                         }`}
                       />
-                      {isFriendVip && (
-                        <span className="absolute -top-1.5 -right-1 text-xs animate-bounce pointer-events-none">💖</span>
+                      {isMutualDuo && (
+                        <span className="absolute -top-2 -right-1.5 text-xs animate-bounce pointer-events-none">💖</span>
+                      )}
+                      {!isMutualDuo && isFriendVip && (
+                        <span className="absolute -top-1.5 -right-1 text-xs animate-bounce pointer-events-none">👑</span>
                       )}
                     </div>
                     <div>
                       <div className="text-sm font-bold flex items-center gap-2">
-                        {isFriendVip ? (
+                        {isMutualDuo ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="bg-gradient-to-r from-pink-300 via-rose-200 to-amber-200 bg-clip-text text-transparent font-serif font-black tracking-wide">
+                              {f.displayName}
+                            </span>
+                            <span className="text-xs">💖</span>
+                          </div>
+                        ) : isFriendVip ? (
                           <VipUniqueName name={f.displayName} className="text-sm" showTitle={false} />
                         ) : (
                           <span className="text-ivory-100 group-hover:text-gold-300 font-bold">
@@ -480,7 +500,12 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onNavigate }) => {
                             Offline
                           </span>
                         )}
-                        {isFriendVip && (
+                        {isMutualDuo && (
+                          <span className="text-[9px] px-2 py-0.5 rounded-full bg-pink-950/80 border border-pink-400/70 text-pink-300 font-bold shadow-[0_0_8px_rgba(244,114,182,0.4)]">
+                            DUO 🤝
+                          </span>
+                        )}
+                        {!isMutualDuo && isFriendVip && (
                           <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-rose-950 border border-rose-500/50 text-rose-300 font-bold">
                             VIP 👑
                           </span>
@@ -496,6 +521,21 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onNavigate }) => {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
+                    {/* Exclusive Duo Bond Button only visible between Ayush and Palak */}
+                    {isMutualDuo && (
+                      <button
+                        onClick={() => {
+                          sound.playClick();
+                          setShowDuoModal(true);
+                        }}
+                        title="Open Dynamic Duo Bond"
+                        className="px-3 py-1.5 rounded-xl text-xs font-black bg-gradient-to-r from-pink-600 via-rose-500 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white flex items-center gap-1.5 transition-all shadow-[0_0_15px_rgba(236,72,153,0.5)] animate-pulse"
+                      >
+                        <span>💖</span>
+                        <span>Duo Bond</span>
+                      </button>
+                    )}
+
                     <button
                       onClick={() => {
                         sound.playClick();
@@ -503,7 +543,9 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onNavigate }) => {
                       }}
                       title="View Profile"
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-all shadow ${
-                        isFriendVip
+                        isMutualDuo
+                          ? 'bg-pink-950/60 border-pink-500/50 text-pink-200 hover:border-pink-400'
+                          : isFriendVip
                           ? 'bg-rose-950/70 border-rose-500/60 text-pink-200 hover:border-rose-400'
                           : 'bg-table-dark/80 hover:bg-table-dark border-gold-500/30 hover:border-gold-400 text-gold-300'
                       }`}
@@ -628,6 +670,13 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onNavigate }) => {
             gamesWon: selectedProfileUser.gamesWon,
             isVipUser: isVipUser(selectedProfileUser),
           }}
+        />
+      )}
+
+      {showDuoModal && (
+        <DynamicDuoHandholdModal
+          isOpen={showDuoModal}
+          onClose={() => setShowDuoModal(false)}
         />
       )}
     </div>

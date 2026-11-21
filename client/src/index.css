@@ -226,3 +226,35 @@
 .float-heart-4 {
   animation: floatHeartUp 4.4s infinite ease-out 0.6s;
 }
+
+/* Beautiful Flying Reaction Animation (Kiss 💋, Rose 🌹, Hug 🫂) */
+@keyframes duoEmojiFlyUp {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.6) rotate(0deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+    transform: translate3d(calc(var(--fly-drift, 0px) * 0.25), -60px, 0) scale(1.3) rotate(-10deg);
+  }
+  50% {
+    opacity: 0.95;
+    transform: translate3d(calc(var(--fly-drift, 0px) * 0.65), -190px, 0) scale(1.45) rotate(12deg);
+  }
+  80% {
+    opacity: 0.75;
+    transform: translate3d(var(--fly-drift, 0px), -340px, 0) scale(1.15) rotate(-6deg);
+  }
+  100% {
+    transform: translate3d(calc(var(--fly-drift, 0px) * 1.3), -480px, 0) scale(0.7) rotate(15deg);
+    opacity: 0;
+  }
+}
+
+.reaction-float-item {
+  animation: duoEmojiFlyUp 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: transform, opacity;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 12px rgba(244, 63, 94, 0.45));
+}
+

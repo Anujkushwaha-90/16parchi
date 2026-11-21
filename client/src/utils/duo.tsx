@@ -85,7 +85,7 @@ export const DuoUniqueName: React.FC<{
           className={
             isBoy
               ? 'bg-gradient-to-r from-cyan-300 via-sky-200 to-amber-200 bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(56,189,248,0.7)]'
-              : 'bg-gradient-to-r from-rose-300 via-pink-200 to-amber-200 bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(244,63,94,0.7)]'
+              : 'bg-gradient-to-r from-red-400 via-rose-300 to-amber-200 bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(239,68,68,0.8)]'
           }
         >
           {name}
@@ -93,8 +93,8 @@ export const DuoUniqueName: React.FC<{
         <span className="text-base sm:text-lg animate-pulse filter drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]">
           {isBoy ? '🛡️' : '👑'}
         </span>
-        <span className="text-sm animate-bounce filter drop-shadow-[0_0_8px_rgba(244,63,94,0.9)]">
-          💖
+        <span className="text-sm animate-bounce filter drop-shadow-[0_0_8px_rgba(239,68,68,0.9)]">
+          ❤️
         </span>
       </div>
       {showTitle && (
@@ -102,10 +102,10 @@ export const DuoUniqueName: React.FC<{
           className={`text-[10px] font-black tracking-widest uppercase mt-0.5 ${
             isBoy
               ? 'bg-gradient-to-r from-cyan-400 via-sky-300 to-amber-300 bg-clip-text text-transparent'
-              : 'bg-gradient-to-r from-rose-400 via-pink-300 to-amber-300 bg-clip-text text-transparent'
+              : 'bg-gradient-to-r from-red-400 via-rose-300 to-amber-300 bg-clip-text text-transparent'
           }`}
         >
-          {isBoy ? '✦ Celestial Knight ✦' : '✦ Starlight Empress ✦'}
+          {isBoy ? '✦ Celestial Knight ✦' : '✦ Crimson Empress ✦'}
         </span>
       )}
     </div>
@@ -125,11 +125,11 @@ export const DuoBadgeTag: React.FC<{
         className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black tracking-wide shadow-md border ${
           isBoy
             ? 'bg-gradient-to-r from-cyan-950/80 to-blue-950/80 border-cyan-400/60 text-cyan-200 shadow-[0_0_15px_rgba(56,189,248,0.35)]'
-            : 'bg-gradient-to-r from-rose-950/80 to-pink-950/80 border-rose-400/60 text-pink-200 shadow-[0_0_15px_rgba(244,63,94,0.35)]'
+            : 'bg-gradient-to-r from-red-950/90 to-rose-950/90 border-red-500/70 text-red-200 shadow-[0_0_15px_rgba(239,68,68,0.5)]'
         }`}
       >
         {isBoy ? <Shield className="w-3.5 h-3.5 text-cyan-400" /> : <Crown className="w-3.5 h-3.5 text-amber-300" />}
-        <span>{isBoy ? 'Protected by Palak 🛡️💖' : 'Cherished by Ayush 👑✨'}</span>
+        <span>{isBoy ? 'Protected by Palak 🛡️❤️' : 'Cherished by Ayush 👑✨'}</span>
       </div>
 
       <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-950/40 border border-amber-500/40 text-amber-300">
