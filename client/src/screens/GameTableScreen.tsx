@@ -329,7 +329,17 @@ export const GameTableScreen: React.FC<GameTableScreenProps> = ({
   const handleSelectCard = (card: ParchiCard) => {
     if (!isMyTurn) return;
     sound.playClick();
-    setSelectedCardId(card.id === selectedCardId ? null : card.id);
+    
+    // If user clicks the already-selected card again, pass it immediately!
+    if (selectedCardId === card.id) {
+      setPassingCardId(card.id);
+      passCard(card.id);
+      setSelectedCardId(null);
+      setTimeout(() => setPassingCardId(null), 600);
+      return;
+    }
+    
+    setSelectedCardId(card.id);
   };
 
   const handlePassCard = () => {

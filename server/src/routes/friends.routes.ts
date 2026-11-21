@@ -180,18 +180,16 @@ router.post('/request', requireAuth, async (req: AuthRequest, res: Response): Pr
     if (existingRequest) {
       if (existingRequest.senderId === targetUser.id) {
         // Automatically accept reverse request!
-        await prisma.$transaction([
-          prisma.friendRequest.update({
-            where: { id: existingRequest.id },
-            data: { status: 'ACCEPTED' },
-          }),
-          prisma.friendship.create({
-            data: {
-              userAId: senderId,
-              userBId: targetUser.id,
-            },
-          }),
-        ]);
+        await prisma.friendRequest.update({
+          where: { id: existingRequest.id },
+          data: { status: 'ACCEPTED' },
+        });
+        await prisma.friendship.create({
+          data: {
+            userAId: senderId,
+            userBId: targetUser.id,
+          },
+        });
         sendToUser(targetUser.id, 'friend:request_accepted', {
           friend: req.user,
         });
@@ -250,18 +248,16 @@ router.post('/request/:id/accept', requireAuth, async (req: AuthRequest, res: Re
       return;
     }
 
-    await prisma.$transaction([
-      prisma.friendRequest.update({
-        where: { id },
-        data: { status: 'ACCEPTED' },
-      }),
-      prisma.friendship.create({
-        data: {
-          userAId: request.senderId,
-          userBId: request.receiverId,
-        },
-      }),
-    ]);
+    await prisma.friendRequest.update({
+      where: { id },
+      data: { status: 'ACCEPTED' },
+    });
+    await prisma.friendship.create({
+      data: {
+        userAId: request.senderId,
+        userBId: request.receiverId,
+      },
+    });
 
     // Instant real-time notifications to both friends
     sendToUser(request.senderId, 'friend:request_accepted', {
