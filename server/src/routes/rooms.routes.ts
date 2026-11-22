@@ -790,10 +790,13 @@ router.post('/:code/start', requireAuth, async (req: AuthRequest, res: Response)
     }
 
     // Host is actively starting the match, auto-mark host as ready
-    await prisma.roomMember.updateMany({
-      where: { roomId: room.id, userId },
-      data: { isReady: true },
-    });
+    const hostMember = room.members.find((m) => m.userId === userId);
+    if (hostMember) {
+      await prisma.roomMember.update({
+        where: { id: hostMember.id },
+        data: { isReady: true },
+      });
+    }
 
     // Check if any non-host player is not ready
     const otherMembers = room.members.filter((m) => m.userId !== userId);

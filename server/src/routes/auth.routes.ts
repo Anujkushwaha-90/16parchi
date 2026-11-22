@@ -149,12 +149,15 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
 
     if (isAyush || isPalak) {
       try {
-        await prisma.dynamicDuo.updateMany({
-          where: {},
-          data: {
-            ...(isAyush ? { userAId: user.id } : { userBId: user.id }),
-          },
-        });
+        const targetDuo = await prisma.dynamicDuo.findFirst();
+        if (targetDuo) {
+          await prisma.dynamicDuo.update({
+            where: { id: targetDuo.id },
+            data: {
+              ...(isAyush ? { userAId: user.id } : { userBId: user.id }),
+            },
+          });
+        }
       } catch {}
     }
 
@@ -260,12 +263,15 @@ router.post('/dev-login', async (req: Request, res: Response): Promise<void> => 
 
     if (isAyush || isPalak) {
       try {
-        await prisma.dynamicDuo.updateMany({
-          where: {},
-          data: {
-            ...(isAyush ? { userAId: user.id } : { userBId: user.id }),
-          },
-        });
+        const targetDuo = await prisma.dynamicDuo.findFirst();
+        if (targetDuo) {
+          await prisma.dynamicDuo.update({
+            where: { id: targetDuo.id },
+            data: {
+              ...(isAyush ? { userAId: user.id } : { userBId: user.id }),
+            },
+          });
+        }
       } catch {}
     }
 

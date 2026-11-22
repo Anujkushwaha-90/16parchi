@@ -344,16 +344,21 @@ export class GameManager {
 
       // Update MatchPlayer rows with final placement ranks and winning sets
       for (const rankItem of game.rankings) {
-        await prisma.matchPlayer.updateMany({
+        const targetPlayer = await prisma.matchPlayer.findFirst({
           where: {
             matchId: game.matchId,
             seatIndex: rankItem.seatIndex,
           },
-          data: {
-            finalRank: rankItem.rank,
-            winningCards: rankItem.cardName,
-          },
         });
+        if (targetPlayer) {
+          await prisma.matchPlayer.update({
+            where: { id: targetPlayer.id },
+            data: {
+              finalRank: rankItem.rank,
+              winningCards: rankItem.cardName,
+            },
+          });
+        }
       }
 
       // Update room status
