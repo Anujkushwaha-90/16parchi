@@ -50,7 +50,7 @@ function createPrismaClient(): PrismaClient {
     process.env.DATABASE_URL ||
     'postgresql://neondb_owner:npg_WvHBlgybz8K7@ep-snowy-salad-b4xriomi.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require';
 
-  const adapter = new PrismaNeonHTTP(connectionString);
+  const adapter = new (PrismaNeonHTTP as any)(connectionString, {});
 
   return new PrismaClient({
     adapter,
