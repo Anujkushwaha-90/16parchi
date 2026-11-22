@@ -325,20 +325,74 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     [socket]
   );
 
-  const passCard = useCallback(
-    (cardId: string) => {
-      if (!socket || !currentRoomId) return;
-      sound.playCardPass();
-      socket.emit('game:passCard', { roomId: currentRoomId, cardId });
+  const setGameStates = useCallback(
+    (pub: PublicGameState | null, priv: PrivatePlayerState | null) => {
+      if (pub) {
+        setPublicState((prev) => mergePublicState(prev, pub));
+      }
+      if (priv) {
+        setPrivateState((prev) => {
+          if (!prev || priv.matchId !== prev.matchId) return priv;
+          if (priv.status === 'FINISHED' && prev.status !== 'FINISHED') return priv;
+          if (prev.status === 'FINISHED' && priv.status !== 'FINISHED') return prev;
+          if (priv.turnNumber < prev.turnNumber) return prev;
+          return priv;
+        });
+      }
     },
-    [socket, currentRoomId]
+    [mergePublicState]
   );
 
-  const declareWin = useCallback(() => {
-    if (!socket || !currentRoomId) return;
+  const passCard = useCallback(
+    async (cardId: string) => {
+      const roomId = currentRoomId || publicState?.roomId;
+      const code = publicState?.roomCode;
+      if (!roomId && !code) return;
+
+      sound.playCardPass();
+
+      // 1. Emit via WebSocket if connected
+      if (socket && socket.connected && roomId) {
+        socket.emit('game:passCard', { roomId, cardId });
+      }
+
+      // 2. Also trigger HTTP REST fallback to guarantee pass succeeds on serverless/Vercel
+      if (code) {
+        try {
+          const res = await api.passCard(code, cardId);
+          if (res && res.success && res.publicState) {
+            setGameStates(res.publicState, res.privateState || null);
+          }
+        } catch (e: any) {
+          console.warn('REST pass card notice:', e.message);
+        }
+      }
+    },
+    [socket, currentRoomId, publicState?.roomId, publicState?.roomCode, setGameStates]
+  );
+
+  const declareWin = useCallback(async () => {
+    const roomId = currentRoomId || publicState?.roomId;
+    const code = publicState?.roomCode;
+    if (!roomId && !code) return;
+
     sound.playDeclare();
-    socket.emit('game:declare', { roomId: currentRoomId });
-  }, [socket, currentRoomId]);
+
+    if (socket && socket.connected && roomId) {
+      socket.emit('game:declare', { roomId });
+    }
+
+    if (code) {
+      try {
+        const res = await api.declareWin(code);
+        if (res && res.success && res.publicState) {
+          setGameStates(res.publicState, res.privateState || null);
+        }
+      } catch (e: any) {
+        console.warn('REST declare notice:', e.message);
+      }
+    }
+  }, [socket, currentRoomId, publicState?.roomId, publicState?.roomCode, setGameStates]);
 
   const sendChatMessage = useCallback(
     (message: string) => {
@@ -375,24 +429,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     prevCanDeclareRef.current = false;
     celebratedPersonalWinMatchRef.current = null;
   }, []);
-
-  const setGameStates = useCallback(
-    (pub: PublicGameState | null, priv: PrivatePlayerState | null) => {
-      if (pub) {
-        setPublicState((prev) => mergePublicState(prev, pub));
-      }
-      if (priv) {
-        setPrivateState((prev) => {
-          if (!prev || priv.matchId !== prev.matchId) return priv;
-          if (priv.status === 'FINISHED' && prev.status !== 'FINISHED') return priv;
-          if (prev.status === 'FINISHED' && priv.status !== 'FINISHED') return prev;
-          if (priv.turnNumber < prev.turnNumber) return prev;
-          return priv;
-        });
-      }
-    },
-    [mergePublicState]
-  );
 
   const syncGameState = useCallback(
     async (roomCode: string): Promise<boolean> => {

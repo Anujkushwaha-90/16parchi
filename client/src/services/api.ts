@@ -200,6 +200,19 @@ class ApiService {
     return this.request(`/rooms/${code}/game`);
   }
 
+  public passCard(code: string, cardId: string) {
+    return this.request(`/rooms/${code}/pass`, {
+      method: 'POST',
+      body: JSON.stringify({ cardId }),
+    });
+  }
+
+  public declareWin(code: string) {
+    return this.request(`/rooms/${code}/declare`, {
+      method: 'POST',
+    });
+  }
+
   public inviteFriendToRoom(code: string, friendUserId: string) {
     return this.request(`/rooms/${code}/invite`, {
       method: 'POST',
